@@ -1082,25 +1082,34 @@ function BillReceipt({
       <section className="bill-print" aria-label="Printed bill">
         <div className="bill-header">
           <h1>Repose Cafe</h1>
-          <p>{order.id ? `Bill #${order.id}` : "Draft bill"}</p>
-          {!isPaid && <p>Unpaid bill</p>}
-          <p>{serviceLabel}</p>
-          <p>{formatDateTime(printedAt)}</p>
+          <p className="bill-status">{isPaid ? "Paid bill" : "Unpaid bill"}</p>
         </div>
 
-        <div className="bill-table-head">
-          <span>Item</span>
-          <span>Qty</span>
-          <span>Price</span>
-          <span>Total</span>
+        <div className="bill-meta">
+          <div>
+            <span>Bill</span>
+            <strong>{order.id ? `#${order.id}` : "Draft"}</strong>
+          </div>
+          <div>
+            <span>Type</span>
+            <strong>{serviceLabel}</strong>
+          </div>
+          <div>
+            <span>Time</span>
+            <strong>{formatDateTime(printedAt)}</strong>
+          </div>
         </div>
+
         <div className="bill-lines">
           {lines.map((line) => (
             <div key={line.id} className="bill-line">
-              <strong>{line.item_name}</strong>
-              <span>{line.qty}</span>
-              <span>{line.unit_price.toFixed(3)}</span>
-              <span>{line.line_total.toFixed(3)}</span>
+              <div className="bill-line-name">{line.item_name}</div>
+              <div className="bill-line-detail">
+                <span>
+                  {line.qty} x {line.unit_price.toFixed(3)}
+                </span>
+                <strong>{line.line_total.toFixed(3)}</strong>
+              </div>
             </div>
           ))}
         </div>
@@ -1134,7 +1143,10 @@ function BillReceipt({
           )}
         </div>
 
-        <p className="bill-footer">Thank you</p>
+        <div className="bill-footer">
+          <strong>Thank you</strong>
+          <span>Repose Cafe</span>
+        </div>
       </section>
     </div>
   );
