@@ -97,7 +97,6 @@ export default function PosPage() {
     load().catch((e) => setError(e.message));
   }, [load]);
 
-  const selectedShift = activeShifts.find((s) => s.id === selectedShiftId);
   const selectedCategory = categories.find((c) => c.id === selectedCategoryId);
   const categoryItems = menu.filter((i) => i.category_id === selectedCategoryId);
 
@@ -390,165 +389,158 @@ export default function PosPage() {
 
   const canOpenShift = activeShifts.length < 2;
 
+  const menuHint =
+    !selectedShiftId
+      ? "Open a shift to start"
+      : !serviceType
+        ? "Pick Dine in or Takeaway above"
+        : serviceType === "dine_in" && !openOrderId
+          ? "Pick a table above, then tap a category"
+          : selectedCategoryId
+            ? "Tap items to add to the order"
+            : "Tap a category below";
+
   return (
-    <>
+    <div className="pos-page">
       {error && <div className="alert alert-error">{error}</div>}
       {success && <div className="alert alert-info">{success}</div>}
 
-      <div className="shift-bar no-print">
-        {activeShifts.length === 0 && (
-          <div className="alert alert-warn" style={{ flex: 1 }}>
-            No shift open. Log in to start your shift.
+      <header className="pos-header no-print">
+        <div className="shift-bar shift-bar--compact">
+          {activeShifts.length === 0 && (
+            <p className="pos-header-hint">No shift open.</p>
+          )}
+          {canOpenShift && (
+            <button type="button" className="btn-primary" onClick={() => setLoginMode("open")}>
+              Start shift
+            </button>
+          )}
+          {activeShifts.map((sh) => (
+            <div
+              key={sh.id}
+              className={`shift-chip shift-chip--compact ${selectedShiftId === sh.id ? "shift-chip--selected" : ""}`}
+              onClick={() => setSelectedShiftId(sh.id)}
+              onKeyDown={(e) => e.key === "Enter" && setSelectedShiftId(sh.id)}
+              role="button"
+              tabIndex={0}
+            >
+              <strong>{sh.staff_name}</strong>
+              <button
+                type="button"
+                className="btn-danger btn-danger--sm no-print"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  startCloseShift(sh);
+                }}
+              >
+                End
+              </button>
+            </div>
+          ))}
+        </div>
+
+        {selectedShiftId && (
+          <div className="pos-toolbar">
+            <div className="pos-toolbar-group">
+              <span className="pos-toolbar-label">Type</span>
+              {!serviceType ? (
+                <div className="pos-chip-row">
+                  <button
+                    type="button"
+                    className="pos-chip pos-chip--action"
+                    onClick={() => chooseServiceType("dine_in")}
+                  >
+                    Dine in
+                  </button>
+                  <button
+                    type="button"
+                    className="pos-chip pos-chip--action"
+                    onClick={() => chooseServiceType("takeaway")}
+                  >
+                    Takeaway
+                  </button>
+                </div>
+              ) : (
+                <div className="pos-chip-row">
+                  <span className="pos-chip pos-chip--on">
+                    {serviceType === "dine_in" ? "Dine in" : "Takeaway"}
+                    {serviceType === "dine_in" && selectedTable != null && (
+                      <> · T{selectedTable}</>
+                    )}
+                  </span>
+                  <button type="button" className="pos-chip pos-chip--link" onClick={changeServiceOrTable}>
+                    Change
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {serviceType === "dine_in" && (
+              <div className="pos-toolbar-group pos-toolbar-group--tables">
+                <span className="pos-toolbar-label">Table</span>
+                <div className="pos-chip-row pos-table-row">
+                  {tables.map((t) => (
+                    <button
+                      key={t.number}
+                      type="button"
+                      className={`pos-table-chip ${t.status} ${selectedTable === t.number ? "selected" : ""}`}
+                      disabled={!selectedShiftId || loading}
+                      onClick={() => selectTable(t.number)}
+                      title={t.status === "occupied" ? "Occupied" : "Free"}
+                    >
+                      <span className="pos-table-num">{t.number}</span>
+                      {t.status === "occupied" && t.total != null && t.total > 0 && (
+                        <span className="pos-table-amt">
+                          <Money amount={t.total} />
+                        </span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
-        {canOpenShift && (
-          <button type="button" className="btn-primary" onClick={() => setLoginMode("open")}>
-            Start shift (login)
-          </button>
-        )}
-        {activeShifts.map((sh) => (
-          <div
-            key={sh.id}
-            className="shift-chip"
-            style={{
-              outline: selectedShiftId === sh.id ? "3px solid var(--accent)" : undefined,
-              cursor: "pointer",
-            }}
-            onClick={() => setSelectedShiftId(sh.id)}
-            onKeyDown={(e) => e.key === "Enter" && setSelectedShiftId(sh.id)}
-            role="button"
-            tabIndex={0}
-          >
+      </header>
+
+      <div className="pos-main">
+        <section
+          className={`pos-menu card ${canUseMenu ? "" : "pos-menu--locked"}`}
+          aria-disabled={!canUseMenu}
+        >
+          <div className="pos-menu-head">
             <div>
-              <strong>{sh.staff_name}</strong>
-              <div className="stats">Started {formatDateTime(sh.started_at)}</div>
+              <h2 className="pos-menu-title">Categories</h2>
+              <p className="pos-menu-hint">{menuHint}</p>
             </div>
             <button
               type="button"
-              className="btn-danger no-print"
-              onClick={(e) => {
-                e.stopPropagation();
-                startCloseShift(sh);
-              }}
+              className="btn-secondary"
+              onClick={() => setShowAddItem((v) => !v)}
             >
-              End shift
+              {showAddItem ? "Cancel" : "+ Add item"}
             </button>
           </div>
-        ))}
-      </div>
 
-      {selectedShift && (
-        <p style={{ marginBottom: "0.75rem", color: "var(--muted)" }}>
-          Taking orders for: <strong>{selectedShift.staff_name}</strong> (tap another
-          shift chip to switch)
-        </p>
-      )}
-
-      {selectedShiftId && (
-        <div className="card" style={{ marginBottom: "1rem" }}>
-          <h2 style={{ marginBottom: "0.75rem", fontSize: "1.1rem" }}>1 — Order type</h2>
-          {!serviceType ? (
-            <div className="service-type-bar">
-              <button type="button" className="btn-primary" onClick={() => chooseServiceType("dine_in")}>
-                Dine in
-              </button>
-              <button type="button" className="btn-primary" onClick={() => chooseServiceType("takeaway")}>
-                Takeaway
-              </button>
-            </div>
-          ) : (
-            <div className="order-context">
-              <span>
-                <strong>{serviceType === "dine_in" ? "Dine in" : "Takeaway"}</strong>
-                {serviceType === "dine_in" && selectedTable && (
-                  <> · <strong>Table {selectedTable}</strong></>
-                )}
-              </span>
-              <button type="button" className="btn-secondary" onClick={changeServiceOrTable}>
-                Change
-              </button>
-            </div>
-          )}
-          {serviceType === "dine_in" && (
-            <>
-              <h2 style={{ margin: "1rem 0 0.75rem", fontSize: "1.1rem" }}>2 — Choose table</h2>
-              <div className="table-grid">
-                {tables.map((t) => (
-                  <button
-                    key={t.number}
-                    type="button"
-                    className={`table-btn ${t.status} ${selectedTable === t.number ? "selected" : ""}`}
-                    disabled={!selectedShiftId || loading}
-                    onClick={() => selectTable(t.number)}
-                  >
-                    Table {t.number}
-                    {t.status === "occupied" ? (
-                      <>
-                        <span style={{ fontSize: "0.75rem" }}>Occupied</span>
-                        {t.total != null && t.total > 0 && (
-                          <span className="table-total">
-                            <Money amount={t.total} />
-                          </span>
-                        )}
-                      </>
-                    ) : (
-                      <span style={{ fontSize: "0.75rem", opacity: 0.85 }}>Free</span>
-                    )}
-                  </button>
-                ))}
-              </div>
-            </>
-          )}
-        </div>
-      )}
-
-      {selectedShiftId && !serviceType && (
-        <p className="alert alert-info" style={{ marginBottom: "1rem" }}>
-          Choose Dine in or Takeaway before adding items.
-        </p>
-      )}
-
-      {selectedShiftId && serviceType === "dine_in" && !openOrderId && (
-        <p className="alert alert-warn" style={{ marginBottom: "1rem" }}>
-          Select a table to start or edit an order.
-        </p>
-      )}
-
-      <div className="grid-2">
-        <div className="card" style={{ opacity: canUseMenu ? 1 : 0.45, pointerEvents: canUseMenu ? "auto" : "none" }}>
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              marginBottom: "1rem",
-              flexWrap: "wrap",
-              gap: "0.5rem",
-            }}
-          >
-            <h2 style={{ margin: 0 }}>
-              {selectedCategoryId
-                ? selectedCategory?.name ?? "Items"
-                : "Choose category"}
-            </h2>
-            <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
-              {selectedCategoryId && (
+          <div className="category-strip" role="tablist" aria-label="Menu categories">
+            {categories.map((cat) => {
+              const count = menu.filter((i) => i.category_id === cat.id).length;
+              const isActive = selectedCategoryId === cat.id;
+              return (
                 <button
+                  key={cat.id}
                   type="button"
-                  className="btn-secondary"
-                  onClick={() => setSelectedCategoryId(null)}
+                  role="tab"
+                  aria-selected={isActive}
+                  className={`category-pill ${isActive ? "category-pill--active" : ""}`}
+                  disabled={!selectedShiftId}
+                  onClick={() => setSelectedCategoryId(cat.id)}
                 >
-                  ← Categories
+                  <span className="category-pill-name">{cat.name}</span>
+                  <span className="category-pill-count">{count}</span>
                 </button>
-              )}
-              <button
-                type="button"
-                className="btn-secondary"
-                onClick={() => setShowAddItem((v) => !v)}
-              >
-                {showAddItem ? "Cancel" : "+ Add item"}
-              </button>
-            </div>
+              );
+            })}
           </div>
 
           {showAddItem && (
@@ -634,56 +626,59 @@ export default function PosPage() {
           )}
 
           {!selectedCategoryId ? (
-            <div className="category-grid">
+            <div className="category-grid category-grid--hero">
               {categories.map((cat) => {
                 const count = menu.filter((i) => i.category_id === cat.id).length;
                 return (
                   <button
                     key={cat.id}
                     type="button"
-                    className="category-btn"
+                    className="category-btn category-btn--hero"
                     disabled={!selectedShiftId}
                     onClick={() => setSelectedCategoryId(cat.id)}
                   >
-                    {cat.name}
-                    <div style={{ fontSize: "0.8rem", fontWeight: 500, opacity: 0.9, marginTop: 4 }}>
-                      {count} items
-                    </div>
+                    <span className="category-btn-name">{cat.name}</span>
+                    <span className="category-btn-meta">{count} items</span>
                   </button>
                 );
               })}
             </div>
-          ) : categoryItems.length === 0 ? (
-            <p className="empty-state">No items in this category. Tap + Add item.</p>
           ) : (
-            <div className="menu-grid">
-              {categoryItems.map((item) => (
-                <button
-                  key={item.id}
-                  type="button"
-                  className="menu-btn"
-                  disabled={!selectedShiftId || item.stock_qty <= 0}
-                  onClick={() => addToCart(item)}
-                >
-                  <span className="name">{item.name}</span>
-                  <span className="price">
-                    <Money amount={item.price} />
-                  </span>
-                  <span className="stock">
-                    Stock: {item.stock_qty}
-                    {item.stock_qty <= item.low_stock_threshold && item.stock_qty > 0 && (
-                      <span className="badge badge-warn" style={{ marginLeft: 4 }}>
-                        Low
+            <div className="pos-items-panel">
+              <h3 className="pos-items-heading">{selectedCategory?.name}</h3>
+              {categoryItems.length === 0 ? (
+                <p className="empty-state">No items in this category. Tap + Add item.</p>
+              ) : (
+                <div className="menu-grid">
+                  {categoryItems.map((item) => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      className="menu-btn"
+                      disabled={!canUseMenu || item.stock_qty <= 0}
+                      onClick={() => addToCart(item)}
+                    >
+                      <span className="name">{item.name}</span>
+                      <span className="price">
+                        <Money amount={item.price} />
                       </span>
-                    )}
-                  </span>
-                </button>
-              ))}
+                      <span className="stock">
+                        Stock: {item.stock_qty}
+                        {item.stock_qty <= item.low_stock_threshold && item.stock_qty > 0 && (
+                          <span className="badge badge-warn" style={{ marginLeft: 4 }}>
+                            Low
+                          </span>
+                        )}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           )}
-        </div>
+        </section>
 
-        <div className="card" style={{ opacity: canUseMenu ? 1 : 0.45, pointerEvents: canUseMenu ? "auto" : "none" }}>
+        <aside className={`pos-cart card ${canUseMenu ? "" : "pos-cart--locked"}`}>
           <h2>
             Current order
             {serviceType === "dine_in" && selectedTable && (
@@ -902,7 +897,7 @@ export default function PosPage() {
               </div>
             </>
           )}
-        </div>
+        </aside>
       </div>
 
       {shiftReport && (
@@ -930,6 +925,6 @@ export default function PosPage() {
           }}
         />
       )}
-    </>
+    </div>
   );
 }
