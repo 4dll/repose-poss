@@ -884,6 +884,205 @@ th {
   pointer-events: none;
 }
 
+.customer-app {
+  min-height: 100vh;
+  background: #f4f1ea;
+}
+
+.customer-menu {
+  max-width: 860px;
+  margin: 0 auto;
+  padding: 1rem 1rem 3rem;
+}
+
+.customer-menu-hero {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1.2rem 0 1rem;
+  border-bottom: 2px solid #1f6b42;
+}
+
+.customer-menu-hero img {
+  width: 74px;
+  height: 74px;
+  object-fit: contain;
+}
+
+.customer-menu-hero p {
+  margin: 0;
+  color: #1f6b42;
+  font-size: 1rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.customer-menu-hero h1 {
+  margin: 0;
+  font-size: 2.4rem;
+  line-height: 1;
+  letter-spacing: 0;
+}
+
+.customer-category-strip {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  gap: 0.5rem;
+  overflow-x: auto;
+  padding: 0.85rem 0;
+  background: #f4f1ea;
+  border-bottom: 1px solid #ddd4c4;
+}
+
+.customer-category-strip button {
+  flex: 0 0 auto;
+  padding: 0.7rem 0.9rem;
+  border-radius: 999px;
+  background: white;
+  color: #25211d;
+  border: 1px solid #ddd4c4;
+  font-size: 0.95rem;
+  white-space: nowrap;
+}
+
+.customer-category-strip button.active {
+  background: #1f6b42;
+  border-color: #1f6b42;
+  color: white;
+}
+
+.customer-menu-list {
+  padding-top: 1rem;
+}
+
+.customer-menu-section + .customer-menu-section {
+  margin-top: 2rem;
+}
+
+.customer-menu-section h2 {
+  margin: 0 0 0.85rem;
+  color: #1f6b42;
+  font-size: 1.35rem;
+  text-transform: capitalize;
+}
+
+.customer-menu-items {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.customer-menu-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: center;
+  padding: 1rem;
+  background: white;
+  border: 1px solid #e4ddcf;
+  border-radius: 8px;
+}
+
+.customer-menu-item h3 {
+  margin: 0;
+  color: #231f1a;
+  font-size: 1.1rem;
+  letter-spacing: 0;
+}
+
+.customer-menu-item strong {
+  color: #1f6b42;
+  font-size: 1.05rem;
+  white-space: nowrap;
+}
+
+.customer-sold-out {
+  display: inline-block;
+  margin-top: 0.25rem;
+  color: #b42318;
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.menu-qr-page {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+
+.menu-qr-card {
+  width: min(100%, 520px);
+  background: white;
+  border: 2px solid var(--border);
+  border-radius: 8px;
+  padding: 1.5rem;
+  text-align: center;
+  box-shadow: var(--shadow);
+}
+
+.menu-qr-brand {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  margin-bottom: 1.2rem;
+}
+
+.menu-qr-brand img {
+  width: 72px;
+  height: 72px;
+  object-fit: contain;
+}
+
+.menu-qr-brand p {
+  margin: 0;
+  color: var(--accent);
+  font-weight: 800;
+  text-align: left;
+  text-transform: uppercase;
+}
+
+.menu-qr-brand h1 {
+  margin: 0;
+  font-size: 2rem;
+  line-height: 1;
+  letter-spacing: 0;
+  text-align: left;
+}
+
+.menu-qr-code {
+  display: grid;
+  place-items: center;
+  min-height: 280px;
+}
+
+.menu-qr-code img {
+  width: min(100%, 320px);
+  height: auto;
+}
+
+.menu-qr-url {
+  margin: 1rem 0 0;
+  color: var(--muted);
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.menu-qr-actions {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.menu-qr-actions a {
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
+}
+
 .bill-overlay {
   position: fixed;
   inset: 0;
@@ -1082,6 +1281,15 @@ th {
     visibility: visible;
   }
 
+  body.qr-printing * {
+    visibility: hidden;
+  }
+
+  body.qr-printing .menu-qr-card,
+  body.qr-printing .menu-qr-card * {
+    visibility: visible;
+  }
+
   .app {
     max-width: none;
     padding: 0;
@@ -1107,6 +1315,20 @@ th {
 
   body.daily-report-printing table {
     font-size: 11px;
+  }
+
+  body.qr-printing .app {
+    padding: 0;
+  }
+
+  body.qr-printing .menu-qr-card {
+    position: fixed;
+    inset: 10mm auto auto 50%;
+    transform: translateX(-50%);
+    width: 140mm;
+    padding: 10mm;
+    box-shadow: none;
+    border: 2px solid #111;
   }
 
   .bill-overlay {
