@@ -1,179 +1,137 @@
-import { DatabaseSync } from "node:sqlite";
-import path from "path";
-import fs from "fs";
-import { fileURLToPath } from "url";
-import { ensureStaffCredentials } from "./auth.js";
+import "dotenv/config";
+import pg from "pg";
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const dbPath = path.join(__dirname, "..", "data", "cafe-pos.db");
+const { Pool } = pg;
 
-fs.mkdirSync(path.dirname(dbPath), { recursive: true });
-
-export const db = new DatabaseSync(dbPath);
-
-function columnExists(table: string, column: string): boolean {
-  const cols = db.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[];
-  return cols.some((c) => c.name === column);
+function getPool() {
+  const url = process.env.DATABASE_URL;
+  if (!url) {
+    throw new Error(
+      "DATABASE_URL is required. Set it to your Supabase Postgres connection string (Project Settings → Database)."
+    );
+  }
+  return new Pool({
+    connectionString: url,
+    ssl: url.includes("localhost") ? undefined : { rejectUnauthorized: false },
+    max: process.env.VERCEL ? 1 : 10,
+  });
 }
 
-export function initDb() {
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS staff (
-      id INTEGER PRIMARY KEY,
-      name TEXT NOT NULL UNIQUE,
-      username TEXT UNIQUE,
-      password_hash TEXT
-    );
+export const pool = getPool();
 
-    CREATE TABLE IF NOT EXISTS categories (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      name TEXT NOT NULL UNIQUE,
-      sort_order INTEGER NOT NULL DEFAULT 0
-    );
-
-    CREATE TABLE IF NOT EXISTS menu_items (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      name TEXT NOT NULL,
-      price REAL NOT NULL,
-      stock_qty INTEGER NOT NULL DEFAULT 0,
-      low_stock_threshold INTEGER NOT NULL DEFAULT 5,
-      active INTEGER NOT NULL DEFAULT 1,
-      category_id INTEGER REFERENCES categories(id),
-      created_at TEXT NOT NULL DEFAULT (datetime('now'))
-    );
-
-    CREATE TABLE IF NOT EXISTS shifts (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      staff_id INTEGER NOT NULL REFERENCES staff(id),
-      started_at TEXT NOT NULL,
-      ended_at TEXT,
-      notes TEXT,
-      FOREIGN KEY (staff_id) REFERENCES staff(id)
-    );
-
-    CREATE TABLE IF NOT EXISTS orders (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      shift_id INTEGER NOT NULL REFERENCES shifts(id),
-      created_at TEXT NOT NULL DEFAULT (datetime('now')),
-      updated_at TEXT,
-      service_type TEXT NOT NULL DEFAULT 'takeaway',
-      table_number INTEGER,
-      status TEXT NOT NULL DEFAULT 'paid',
-      payment_method TEXT,
-      discount_type TEXT,
-      discount_value REAL NOT NULL DEFAULT 0,
-      subtotal REAL NOT NULL,
-      discount_amount REAL NOT NULL DEFAULT 0,
-      total REAL NOT NULL,
-      FOREIGN KEY (shift_id) REFERENCES shifts(id)
-    );
-
-    CREATE TABLE IF NOT EXISTS order_lines (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      order_id INTEGER NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
-      menu_item_id INTEGER NOT NULL REFERENCES menu_items(id),
-      item_name TEXT NOT NULL,
-      qty INTEGER NOT NULL,
-      unit_price REAL NOT NULL,
-      line_total REAL NOT NULL,
-      payment_method TEXT NOT NULL CHECK (payment_method IN ('cash', 'visa'))
-    );
-
-    CREATE TABLE IF NOT EXISTS stock_adjustments (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      menu_item_id INTEGER NOT NULL REFERENCES menu_items(id),
-      qty_change INTEGER NOT NULL,
-      reason TEXT,
-      created_at TEXT NOT NULL DEFAULT (datetime('now'))
-    );
-  `);
-
-  if (!columnExists("staff", "username")) {
-    db.exec("ALTER TABLE staff ADD COLUMN username TEXT");
-  }
-  if (!columnExists("staff", "password_hash")) {
-    db.exec("ALTER TABLE staff ADD COLUMN password_hash TEXT");
-  }
-  db.exec(
-    "CREATE UNIQUE INDEX IF NOT EXISTS idx_staff_username ON staff(username) WHERE username IS NOT NULL"
-  );
-
-  const staffCount = db.prepare("SELECT COUNT(*) as c FROM staff").get() as { c: number };
-  if (staffCount.c === 0) {
-    db.prepare("INSERT INTO staff (id, name) VALUES (1, 'Staff 1'), (2, 'Staff 2')").run();
-  }
-
-  if (!columnExists("menu_items", "category_id")) {
-    db.exec("ALTER TABLE menu_items ADD COLUMN category_id INTEGER REFERENCES categories(id)");
-  }
-  if (!columnExists("orders", "service_type")) {
-    db.exec("ALTER TABLE orders ADD COLUMN service_type TEXT NOT NULL DEFAULT 'takeaway'");
-  }
-  if (!columnExists("orders", "table_number")) {
-    db.exec("ALTER TABLE orders ADD COLUMN table_number INTEGER");
-  }
-  if (!columnExists("orders", "status")) {
-    db.exec("ALTER TABLE orders ADD COLUMN status TEXT NOT NULL DEFAULT 'paid'");
-  }
-  if (!columnExists("orders", "payment_method")) {
-    db.exec("ALTER TABLE orders ADD COLUMN payment_method TEXT");
-  }
-  if (!columnExists("orders", "updated_at")) {
-    db.exec("ALTER TABLE orders ADD COLUMN updated_at TEXT");
-  }
-  if (!columnExists("orders", "cash_amount")) {
-    db.exec("ALTER TABLE orders ADD COLUMN cash_amount REAL NOT NULL DEFAULT 0");
-  }
-  if (!columnExists("orders", "visa_amount")) {
-    db.exec("ALTER TABLE orders ADD COLUMN visa_amount REAL NOT NULL DEFAULT 0");
-  }
-  db.exec(
-    `UPDATE orders SET status = 'paid', service_type = 'takeaway'
-     WHERE status IS NULL OR status = ''`
-  );
-  db.exec(
-    `UPDATE orders SET cash_amount = total, visa_amount = 0
-     WHERE status = 'paid' AND (cash_amount IS NULL OR cash_amount = 0) AND (visa_amount IS NULL OR visa_amount = 0)
-       AND (payment_method IS NULL OR payment_method = 'cash')`
-  );
-  db.exec(
-    `UPDATE orders SET cash_amount = 0, visa_amount = total
-     WHERE status = 'paid' AND payment_method = 'visa' AND visa_amount = 0`
-  );
-  db.exec(
-    `CREATE UNIQUE INDEX IF NOT EXISTS idx_open_dine_table
-     ON orders(table_number) WHERE status = 'open' AND service_type = 'dine_in'`
-  );
-
-  ensureStaffCredentials();
-  ensureDefaultCategories();
+export async function query<T = Record<string, unknown>>(
+  sql: string,
+  params: unknown[] = []
+): Promise<T[]> {
+  const result = await pool.query(sql, params);
+  return result.rows as T[];
 }
 
-function ensureDefaultCategories() {
-  const count = db.prepare("SELECT COUNT(*) as c FROM categories").get() as { c: number };
-  if (count.c > 0) return;
+export async function queryOne<T = Record<string, unknown>>(
+  sql: string,
+  params: unknown[] = []
+): Promise<T | undefined> {
+  const rows = await query<T>(sql, params);
+  return rows[0];
+}
 
-  const defaults = [
+export async function execute(sql: string, params: unknown[] = []): Promise<number> {
+  const result = await pool.query(sql, params);
+  return result.rowCount ?? 0;
+}
+
+export async function transaction<T>(fn: (client: pg.PoolClient) => Promise<T>): Promise<T> {
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const result = await fn(client);
+    await client.query("COMMIT");
+    return result;
+  } catch (e) {
+    await client.query("ROLLBACK");
+    throw e;
+  } finally {
+    client.release();
+  }
+}
+
+export async function clientQuery<T = Record<string, unknown>>(
+  client: pg.PoolClient,
+  sql: string,
+  params: unknown[] = []
+): Promise<T[]> {
+  const result = await client.query(sql, params);
+  return result.rows as T[];
+}
+
+export async function clientQueryOne<T = Record<string, unknown>>(
+  client: pg.PoolClient,
+  sql: string,
+  params: unknown[] = []
+): Promise<T | undefined> {
+  const rows = await clientQuery<T>(client, sql, params);
+  return rows[0];
+}
+
+export async function clientExecute(
+  client: pg.PoolClient,
+  sql: string,
+  params: unknown[] = []
+): Promise<number> {
+  const result = await client.query(sql, params);
+  return result.rowCount ?? 0;
+}
+
+async function tableExists(name: string): Promise<boolean> {
+  const row = await queryOne<{ exists: boolean }>(
+    `SELECT EXISTS (
+       SELECT FROM information_schema.tables
+       WHERE table_schema = 'public' AND table_name = $1
+     ) AS exists`,
+    [name]
+  );
+  return Boolean(row?.exists);
+}
+
+export async function initDb() {
+  const hasStaff = await tableExists("staff");
+  if (!hasStaff) {
+    throw new Error(
+      "Database tables not found. Run supabase/schema.sql in the Supabase SQL Editor first."
+    );
+  }
+
+  const staffCount = await queryOne<{ c: string }>("SELECT COUNT(*)::int AS c FROM staff");
+  if (Number(staffCount?.c) === 0) {
+    await execute(
+      "INSERT INTO staff (id, name) VALUES (1, 'Staff 1'), (2, 'Staff 2') ON CONFLICT DO NOTHING"
+    );
+  }
+
+  const { ensureStaffCredentials } = await import("./auth.js");
+  await ensureStaffCredentials();
+  await ensureDefaultCategories();
+}
+
+async function ensureDefaultCategories() {
+  const count = await queryOne<{ c: string }>("SELECT COUNT(*)::int AS c FROM categories");
+  if (Number(count?.c) > 0) return;
+
+  const defaults: [string, number][] = [
     ["Hot Drinks", 1],
     ["Cold Drinks", 2],
     ["Food", 3],
     ["Other", 4],
   ];
-  const insert = db.prepare("INSERT INTO categories (name, sort_order) VALUES (?, ?)");
   for (const [name, order] of defaults) {
-    insert.run(name, order);
+    await execute("INSERT INTO categories (name, sort_order) VALUES ($1, $2)", [name, order]);
   }
 
-  const hot = db.prepare("SELECT id FROM categories WHERE name = 'Hot Drinks'").get() as {
-    id: number;
-  };
-  const cold = db.prepare("SELECT id FROM categories WHERE name = 'Cold Drinks'").get() as {
-    id: number;
-  };
-  const food = db.prepare("SELECT id FROM categories WHERE name = 'Food'").get() as { id: number };
-  const other = db.prepare("SELECT id FROM categories WHERE name = 'Other'").get() as {
-    id: number;
-  };
+  const hot = await queryOne<{ id: number }>("SELECT id FROM categories WHERE name = 'Hot Drinks'");
+  const cold = await queryOne<{ id: number }>("SELECT id FROM categories WHERE name = 'Cold Drinks'");
+  const food = await queryOne<{ id: number }>("SELECT id FROM categories WHERE name = 'Food'");
+  const other = await queryOne<{ id: number }>("SELECT id FROM categories WHERE name = 'Other'");
+  if (!hot || !cold || !food || !other) return;
 
   const hotNames = [
     "Espresso",
@@ -188,9 +146,21 @@ function ensureDefaultCategories() {
   const coldNames = ["Water"];
   const foodNames = ["Croissant", "Sandwich", "Muffin"];
 
-  const update = db.prepare("UPDATE menu_items SET category_id = ? WHERE name = ?");
-  for (const n of hotNames) update.run(hot.id, n);
-  for (const n of coldNames) update.run(cold.id, n);
-  for (const n of foodNames) update.run(food.id, n);
-  db.prepare("UPDATE menu_items SET category_id = ? WHERE category_id IS NULL").run(other.id);
+  for (const n of hotNames) {
+    await execute("UPDATE menu_items SET category_id = $1 WHERE name = $2", [hot.id, n]);
+  }
+  for (const n of coldNames) {
+    await execute("UPDATE menu_items SET category_id = $1 WHERE name = $2", [cold.id, n]);
+  }
+  for (const n of foodNames) {
+    await execute("UPDATE menu_items SET category_id = $1 WHERE name = $2", [food.id, n]);
+  }
+  await execute("UPDATE menu_items SET category_id = $1 WHERE category_id IS NULL", [other.id]);
+}
+
+/** Map report groupBy to PostgreSQL TO_CHAR format (not user-controlled). */
+export function periodFormat(groupBy: string | undefined): string {
+  if (groupBy === "week") return 'IYYY-"W"IW';
+  if (groupBy === "month") return "YYYY-MM";
+  return "YYYY-MM-DD";
 }

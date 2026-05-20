@@ -1,4 +1,13 @@
-import { db } from "./db.js";
+import {
+  clientExecute,
+  clientQuery,
+  clientQueryOne,
+  execute,
+  query,
+  queryOne,
+  transaction,
+} from "./db.js";
+import type pg from "pg";
 
 export const TABLE_COUNT = 5;
 
@@ -24,29 +33,30 @@ export function calcTotals(
   return { subtotal, discountAmount, total: subtotal - discountAmount, discountValue: dVal };
 }
 
-export function getOpenTableOrder(tableNumber: number) {
-  return db
-    .prepare(
-      `SELECT * FROM orders
-       WHERE status = 'open' AND service_type = 'dine_in' AND table_number = ?`
-    )
-    .get(tableNumber) as Record<string, unknown> | undefined;
+export async function getOpenTableOrder(tableNumber: number) {
+  return queryOne(
+    `SELECT * FROM orders
+     WHERE status = 'open' AND service_type = 'dine_in' AND table_number = $1`,
+    [tableNumber]
+  );
 }
 
-export function getOrderWithLines(orderId: number) {
-  const order = db.prepare("SELECT * FROM orders WHERE id = ?").get(orderId);
+export async function getOrderWithLines(orderId: number) {
+  const order = await queryOne("SELECT * FROM orders WHERE id = $1", [orderId]);
   if (!order) return null;
-  const lines = db
-    .prepare("SELECT * FROM order_lines WHERE order_id = ? ORDER BY id")
-    .all(orderId);
+  const lines = await query("SELECT * FROM order_lines WHERE order_id = $1 ORDER BY id", [
+    orderId,
+  ]);
   return { order, lines };
 }
 
-function validateStock(lines: LineInput[]) {
+async function validateStock(client: pg.PoolClient, lines: LineInput[]) {
   for (const line of lines) {
-    const item = db.prepare("SELECT * FROM menu_items WHERE id = ? AND active = 1").get(
-      line.menuItemId
-    ) as { stock_qty: number; name: string } | undefined;
+    const item = await clientQueryOne<{ stock_qty: number; name: string }>(
+      client,
+      "SELECT * FROM menu_items WHERE id = $1 AND active = TRUE",
+      [line.menuItemId]
+    );
     if (!item) throw new Error(`Item ${line.menuItemId} not found`);
     if (item.stock_qty < line.qty) {
       throw new Error(`Not enough stock for ${item.name} (have ${item.stock_qty})`);
@@ -54,94 +64,110 @@ function validateStock(lines: LineInput[]) {
   }
 }
 
-function restoreStockFromOrder(orderId: number) {
-  const oldLines = db
-    .prepare("SELECT menu_item_id, qty FROM order_lines WHERE order_id = ?")
-    .all(orderId) as { menu_item_id: number; qty: number }[];
+async function restoreStockFromOrder(client: pg.PoolClient, orderId: number) {
+  const oldLines = await clientQuery<{ menu_item_id: number; qty: number }>(
+    client,
+    "SELECT menu_item_id, qty FROM order_lines WHERE order_id = $1",
+    [orderId]
+  );
   for (const line of oldLines) {
-    db.prepare("UPDATE menu_items SET stock_qty = stock_qty + ? WHERE id = ?").run(
-      line.qty,
-      line.menu_item_id
+    await clientExecute(
+      client,
+      "UPDATE menu_items SET stock_qty = stock_qty + $1 WHERE id = $2",
+      [line.qty, line.menu_item_id]
     );
   }
 }
 
-export function replaceOrderLines(
+export async function replaceOrderLines(
+  client: pg.PoolClient,
   orderId: number,
   lines: LineInput[],
   paymentMethod: string
 ) {
-  validateStock(lines);
-  restoreStockFromOrder(orderId);
-  db.prepare("DELETE FROM order_lines WHERE order_id = ?").run(orderId);
-
-  const insertLine = db.prepare(
-    `INSERT INTO order_lines (order_id, menu_item_id, item_name, qty, unit_price, line_total, payment_method)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`
-  );
+  await validateStock(client, lines);
+  await restoreStockFromOrder(client, orderId);
+  await clientExecute(client, "DELETE FROM order_lines WHERE order_id = $1", [orderId]);
 
   for (const line of lines) {
-    const item = db.prepare("SELECT name FROM menu_items WHERE id = ?").get(line.menuItemId) as {
-      name: string;
-    };
-    const lineTotal = line.qty * line.unitPrice;
-    insertLine.run(
-      orderId,
-      line.menuItemId,
-      item.name,
-      line.qty,
-      line.unitPrice,
-      lineTotal,
-      paymentMethod
+    const item = await clientQueryOne<{ name: string }>(
+      client,
+      "SELECT name FROM menu_items WHERE id = $1",
+      [line.menuItemId]
     );
-    db.prepare("UPDATE menu_items SET stock_qty = stock_qty - ? WHERE id = ?").run(
-      line.qty,
-      line.menuItemId
+    if (!item) throw new Error(`Item ${line.menuItemId} not found`);
+    const lineTotal = line.qty * line.unitPrice;
+    await clientExecute(
+      client,
+      `INSERT INTO order_lines (order_id, menu_item_id, item_name, qty, unit_price, line_total, payment_method)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+      [
+        orderId,
+        line.menuItemId,
+        item.name,
+        line.qty,
+        line.unitPrice,
+        lineTotal,
+        paymentMethod,
+      ]
+    );
+    await clientExecute(
+      client,
+      "UPDATE menu_items SET stock_qty = stock_qty - $1 WHERE id = $2",
+      [line.qty, line.menuItemId]
     );
   }
 }
 
-export function createOpenTableOrder(shiftId: number, tableNumber: number) {
-  const existing = getOpenTableOrder(tableNumber);
-  if (existing) return Number(existing.id);
+export async function createOpenTableOrder(shiftId: number, tableNumber: number) {
+  const existing = await getOpenTableOrder(tableNumber);
+  if (existing) return Number((existing as { id: number }).id);
 
-  db.prepare(
+  const row = await queryOne<{ id: number }>(
     `INSERT INTO orders (
       shift_id, service_type, table_number, status,
       discount_type, discount_value, subtotal, discount_amount, total
-    ) VALUES (?, 'dine_in', ?, 'open', NULL, 0, 0, 0, 0)`
-  ).run(shiftId, tableNumber);
-
-  return (db.prepare("SELECT last_insert_rowid() as id").get() as { id: number }).id;
+    ) VALUES ($1, 'dine_in', $2, 'open', NULL, 0, 0, 0, 0)
+    RETURNING id`,
+    [shiftId, tableNumber]
+  );
+  if (!row) throw new Error("Failed to create table order");
+  return row.id;
 }
 
-export function updateOpenOrder(
+export async function updateOpenOrder(
   orderId: number,
   lines: LineInput[],
   discountType?: string | null,
   discountValue?: number
 ) {
-  const order = db.prepare("SELECT * FROM orders WHERE id = ?").get(orderId) as
-    | { status: string; service_type: string }
-    | undefined;
-  if (!order) throw new Error("Order not found");
-  if (order.status !== "open") throw new Error("Order is already paid");
+  return transaction(async (client) => {
+    const order = await clientQueryOne<{ status: string }>(
+      client,
+      "SELECT * FROM orders WHERE id = $1",
+      [orderId]
+    );
+    if (!order) throw new Error("Order not found");
+    if (order.status !== "open") throw new Error("Order is already paid");
 
-  const { subtotal, discountAmount, total, discountValue: dVal } = calcTotals(
-    lines,
-    discountType,
-    discountValue
-  );
+    const { subtotal, discountAmount, total, discountValue: dVal } = calcTotals(
+      lines,
+      discountType,
+      discountValue
+    );
 
-  replaceOrderLines(orderId, lines, "cash");
+    await replaceOrderLines(client, orderId, lines, "cash");
 
-  db.prepare(
-    `UPDATE orders SET
-      discount_type = ?, discount_value = ?, subtotal = ?, discount_amount = ?, total = ?
-     WHERE id = ?`
-  ).run(discountType || null, dVal, subtotal, discountAmount, total, orderId);
+    await clientExecute(
+      client,
+      `UPDATE orders SET
+        discount_type = $1, discount_value = $2, subtotal = $3, discount_amount = $4, total = $5
+       WHERE id = $6`,
+      [discountType || null, dVal, subtotal, discountAmount, total, orderId]
+    );
 
-  return getOrderWithLines(orderId);
+    return getOrderWithLines(orderId);
+  });
 }
 
 export type PaymentSplit = { cashAmount: number; visaAmount: number };
@@ -164,101 +190,136 @@ function paymentLabel(cashAmount: number, visaAmount: number) {
   return "cash";
 }
 
-/** Assign cash/visa to lines so line totals match order payment split. */
-function applySplitToLines(orderId: number, cashAmount: number, visaAmount: number) {
-  const lines = db
-    .prepare("SELECT id, line_total FROM order_lines WHERE order_id = ? ORDER BY line_total DESC")
-    .all(orderId) as { id: number; line_total: number }[];
+async function applySplitToLines(
+  client: pg.PoolClient,
+  orderId: number,
+  cashAmount: number,
+  _visaAmount: number
+) {
+  const lines = await clientQuery<{ id: number; line_total: number }>(
+    client,
+    "SELECT id, line_total FROM order_lines WHERE order_id = $1 ORDER BY line_total DESC",
+    [orderId]
+  );
 
   let cashLeft = cashAmount;
-  const update = db.prepare("UPDATE order_lines SET payment_method = ? WHERE id = ?");
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     const isLast = i === lines.length - 1;
+    let method: "cash" | "visa";
     if (isLast) {
-      update.run(cashLeft >= line.line_total - 0.001 ? "cash" : "visa", line.id);
+      method = cashLeft >= line.line_total - 0.001 ? "cash" : "visa";
     } else if (cashLeft >= line.line_total - 0.001) {
-      update.run("cash", line.id);
+      method = "cash";
       cashLeft -= line.line_total;
     } else {
-      update.run("visa", line.id);
+      method = "visa";
     }
+    await clientExecute(client, "UPDATE order_lines SET payment_method = $1 WHERE id = $2", [
+      method,
+      line.id,
+    ]);
   }
 }
 
-export function payOrder(orderId: number, payment: PaymentSplit) {
-  const order = db.prepare("SELECT * FROM orders WHERE id = ?").get(orderId) as
-    | { status: string; total: number }
-    | undefined;
-  if (!order) throw new Error("Order not found");
-  if (order.status !== "open") throw new Error("Order is already paid");
+export async function payOrder(orderId: number, payment: PaymentSplit) {
+  return transaction(async (client) => {
+    const order = await clientQueryOne<{ status: string; total: number }>(
+      client,
+      "SELECT * FROM orders WHERE id = $1",
+      [orderId]
+    );
+    if (!order) throw new Error("Order not found");
+    if (order.status !== "open") throw new Error("Order is already paid");
 
-  const lineCount = db
-    .prepare("SELECT COUNT(*) as c FROM order_lines WHERE order_id = ?")
-    .get(orderId) as { c: number };
-  if (lineCount.c === 0) throw new Error("Add items before payment");
+    const lineCount = await clientQueryOne<{ c: string }>(
+      client,
+      "SELECT COUNT(*)::int AS c FROM order_lines WHERE order_id = $1",
+      [orderId]
+    );
+    if (Number(lineCount?.c) === 0) throw new Error("Add items before payment");
 
-  const { cashAmount, visaAmount } = validatePayment(order.total, payment.cashAmount, payment.visaAmount);
-  const label = paymentLabel(cashAmount, visaAmount);
+    const { cashAmount, visaAmount } = validatePayment(
+      order.total,
+      payment.cashAmount,
+      payment.visaAmount
+    );
+    const label = paymentLabel(cashAmount, visaAmount);
 
-  applySplitToLines(orderId, cashAmount, visaAmount);
-  db.prepare(
-    `UPDATE orders SET status = 'paid', payment_method = ?, cash_amount = ?, visa_amount = ?,
-      updated_at = datetime('now') WHERE id = ?`
-  ).run(label, cashAmount, visaAmount, orderId);
+    await applySplitToLines(client, orderId, cashAmount, visaAmount);
+    await clientExecute(
+      client,
+      `UPDATE orders SET status = 'paid', payment_method = $1, cash_amount = $2, visa_amount = $3,
+        updated_at = NOW() WHERE id = $4`,
+      [label, cashAmount, visaAmount, orderId]
+    );
 
-  return getOrderWithLines(orderId);
+    return getOrderWithLines(orderId);
+  });
 }
 
-export function createTakeawayOrder(
+export async function createTakeawayOrder(
   shiftId: number,
   lines: LineInput[],
   payment: PaymentSplit,
   discountType?: string | null,
   discountValue?: number
 ) {
-  const { subtotal, discountAmount, total, discountValue: dVal } = calcTotals(
-    lines,
-    discountType,
-    discountValue
-  );
+  return transaction(async (client) => {
+    const { subtotal, discountAmount, total, discountValue: dVal } = calcTotals(
+      lines,
+      discountType,
+      discountValue
+    );
 
-  const { cashAmount, visaAmount } = validatePayment(total, payment.cashAmount, payment.visaAmount);
-  const label = paymentLabel(cashAmount, visaAmount);
-  const lineMethod = label === "split" ? "cash" : label;
+    const { cashAmount, visaAmount } = validatePayment(
+      total,
+      payment.cashAmount,
+      payment.visaAmount
+    );
+    const label = paymentLabel(cashAmount, visaAmount);
+    const lineMethod = label === "split" ? "cash" : label;
 
-  db.prepare(
-    `INSERT INTO orders (
-      shift_id, service_type, table_number, status, payment_method,
-      cash_amount, visa_amount,
-      discount_type, discount_value, subtotal, discount_amount, total
-    ) VALUES (?, 'takeaway', NULL, 'paid', ?, ?, ?, ?, ?, ?, ?, ?)`
-  ).run(
-    shiftId,
-    label,
-    cashAmount,
-    visaAmount,
-    discountType || null,
-    dVal,
-    subtotal,
-    discountAmount,
-    total
-  );
+    const inserted = await clientQueryOne<{ id: number }>(
+      client,
+      `INSERT INTO orders (
+        shift_id, service_type, table_number, status, payment_method,
+        cash_amount, visa_amount,
+        discount_type, discount_value, subtotal, discount_amount, total
+      ) VALUES ($1, 'takeaway', NULL, 'paid', $2, $3, $4, $5, $6, $7, $8, $9)
+      RETURNING id`,
+      [
+        shiftId,
+        label,
+        cashAmount,
+        visaAmount,
+        discountType || null,
+        dVal,
+        subtotal,
+        discountAmount,
+        total,
+      ]
+    );
+    if (!inserted) throw new Error("Failed to create order");
 
-  const orderId = (db.prepare("SELECT last_insert_rowid() as id").get() as { id: number }).id;
-  replaceOrderLines(orderId, lines, lineMethod);
-  if (label === "split") applySplitToLines(orderId, cashAmount, visaAmount);
+    await replaceOrderLines(client, inserted.id, lines, lineMethod);
+    if (label === "split") await applySplitToLines(client, inserted.id, cashAmount, visaAmount);
 
-  return getOrderWithLines(orderId);
+    return getOrderWithLines(inserted.id);
+  });
 }
 
-export function cancelOpenOrder(orderId: number) {
-  const order = db.prepare("SELECT * FROM orders WHERE id = ?").get(orderId) as
-    | { status: string }
-    | undefined;
-  if (!order || order.status !== "open") throw new Error("Cannot cancel this order");
-  restoreStockFromOrder(orderId);
-  db.prepare("DELETE FROM order_lines WHERE order_id = ?").run(orderId);
-  db.prepare("DELETE FROM orders WHERE id = ?").run(orderId);
+export async function cancelOpenOrder(orderId: number) {
+  return transaction(async (client) => {
+    const order = await clientQueryOne<{ status: string }>(
+      client,
+      "SELECT * FROM orders WHERE id = $1",
+      [orderId]
+    );
+    if (!order || order.status !== "open") throw new Error("Cannot cancel this order");
+    await restoreStockFromOrder(client, orderId);
+    await clientExecute(client, "DELETE FROM order_lines WHERE order_id = $1", [orderId]);
+    await clientExecute(client, "DELETE FROM orders WHERE id = $1", [orderId]);
+  });
 }

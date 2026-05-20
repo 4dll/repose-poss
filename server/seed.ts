@@ -1,10 +1,10 @@
-import { db, initDb } from "./db.js";
+import { execute, initDb, queryOne } from "./db.js";
 
-initDb();
+await initDb();
 
-const count = db.prepare("SELECT COUNT(*) as c FROM menu_items").get() as { c: number };
-if (count.c === 0) {
-  const items = [
+const count = await queryOne<{ c: string }>("SELECT COUNT(*)::int AS c FROM menu_items");
+if (Number(count?.c) === 0) {
+  const items: [string, number, number][] = [
     ["Espresso", 2.5, 100],
     ["Americano", 3.0, 100],
     ["Latte", 4.0, 80],
@@ -18,13 +18,16 @@ if (count.c === 0) {
     ["Muffin", 3.0, 35],
     ["Water", 1.0, 100],
   ];
-  const insert = db.prepare(
-    "INSERT INTO menu_items (name, price, stock_qty) VALUES (?, ?, ?)"
-  );
   for (const [name, price, stock] of items) {
-    insert.run(name, price, stock);
+    await execute("INSERT INTO menu_items (name, price, stock_qty) VALUES ($1, $2, $3)", [
+      name,
+      price,
+      stock,
+    ]);
   }
   console.log("Sample menu and stock added.");
 } else {
   console.log("Menu already exists, skipping seed.");
 }
+
+await import("./db.js").then((m) => m.pool.end());

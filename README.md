@@ -1,6 +1,6 @@
 # Repose Cafe POS
 
-A simple point-of-sale system for a coffee shop. Runs in the browser on one or more computers on your local network.
+A simple point-of-sale system for a coffee shop. Runs in the browser — locally on your network or hosted on **Vercel** with **Supabase** (PostgreSQL).
 
 ## Features
 
@@ -9,19 +9,24 @@ A simple point-of-sale system for a coffee shop. Runs in the browser on one or m
 - **Reports** — Daily, monthly, custom range, item sales
 - **Stock** — Quantities, categories, add items
 
-## Quick start
+## Quick start (local)
+
+1. Create a [Supabase](https://supabase.com) project.
+2. In Supabase **SQL Editor**, run the contents of [`supabase/schema.sql`](supabase/schema.sql).
+3. Copy `.env.example` to `.env` and set `DATABASE_URL` to your Supabase connection string  
+   (Project Settings → Database → **URI**, use **Transaction** pooler for serverless).
+4. Install and run:
 
 ```bash
-cd "pos cafe"
 npm install
 npm run db:seed
 npm run dev
 ```
 
-Open **http://localhost:5173** on the main computer.
+Open **http://localhost:5173**.
 
-- API: port **3002**
-- Data: `data/cafe-pos.db` (SQLite, shared by all PCs)
+- API: port **3002** (proxied from Vite)
+- Database: Supabase Postgres (shared by all devices when deployed)
 
 ## Staff logins (default)
 
@@ -30,54 +35,43 @@ Open **http://localhost:5173** on the main computer.
 | Staff 1  | `staff1` | `staff1` |
 | Staff 2  | `staff2` | `staff2` |
 
+## Deploy to Vercel + Supabase
+
+### 1. Supabase
+
+1. Create a project at [supabase.com](https://supabase.com).
+2. Run [`supabase/schema.sql`](supabase/schema.sql) in the SQL Editor.
+3. Copy the **Transaction** pooler connection string (port **6543**).
+
+### 2. Vercel
+
+1. Push this repo to GitHub.
+2. Import the project in [vercel.com](https://vercel.com) → **Add New Project**.
+3. Add environment variable:
+   - `DATABASE_URL` = your Supabase Postgres URI (transaction pooler)
+4. Deploy. Vercel will run `npm run build` and serve the React app; `/api/*` routes to the serverless API.
+
+After deploy, open your Vercel URL (e.g. `https://your-app.vercel.app`). Multiple devices can use the same URL and share one database.
+
+### 3. Seed menu (first time)
+
+From your machine with `DATABASE_URL` set in `.env`:
+
+```bash
+npm run db:seed
+```
+
 ## Payment (including split)
 
 At checkout choose **All cash**, **All visa**, or **Split** and enter how much was paid each way. Cash + Visa must equal the order total.
 
-## Using 2 computers (same cafe)
+## Using 2 computers (local dev)
 
-Both PCs share **one database** on the computer that runs the server.
+Both PCs can use **http://MAIN_PC_IP:5173** while `npm run dev` runs on the main PC (same `DATABASE_URL` in Supabase).
 
-### Option A — Development (easiest to try)
+## Using 2 computers (Vercel)
 
-1. On the **main PC** (where the app folder lives), run:
-   ```bash
-   npm run dev
-   ```
-2. Find the main PC’s IP address:
-   - Mac: System Settings → Network, or Terminal: `ipconfig getifaddr en0`
-   - Windows: `ipconfig` → IPv4 Address
-3. On the **second PC**, open a browser to:
-   ```
-   http://MAIN_PC_IP:5173
-   ```
-   Example: `http://192.168.1.50:5173`
-
-Both PCs use the same menu, tables, and orders.
-
-### Option B — Production (stable for daily use)
-
-On the **main PC only**:
-
-```bash
-npm run build
-npm start
-```
-
-On **any PC** on the same Wi‑Fi, open:
-
-```
-http://MAIN_PC_IP:3002
-```
-
-Example: `http://192.168.1.50:3002`
-
-### Tips
-
-- Keep the main PC **on** and `npm run dev` or `npm start` **running** while the shop is open.
-- Both PCs must be on the **same network** (same Wi‑Fi).
-- Allow through the firewall if Windows/macOS blocks port **5173** (dev) or **3002** (production).
-- Do **not** run two copies of the server on two PCs — only one machine should run the app; others only use the browser.
+Open the same Vercel URL on each device — no local server required.
 
 ## Daily workflow
 
@@ -87,9 +81,11 @@ Example: `http://192.168.1.50:3002`
 4. **Pay** — Cash, Visa, or Split.
 5. **End shift** — Password required; view report.
 
-## Production
+## Production (self-hosted)
 
 ```bash
 npm run build
 HOST=0.0.0.0 PORT=3002 npm start
 ```
+
+Serve **http://YOUR_IP:3002** on your LAN. Requires `DATABASE_URL` in the environment.

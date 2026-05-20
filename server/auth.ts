@@ -1,5 +1,5 @@
 import { scryptSync, randomBytes, timingSafeEqual } from "node:crypto";
-import { db } from "./db.js";
+import { execute, query, queryOne } from "./db.js";
 
 export function hashPassword(password: string): string {
   const salt = randomBytes(16).toString("hex");
@@ -25,38 +25,40 @@ export type StaffAuth = {
   password_hash: string;
 };
 
-export function getStaffByUsername(username: string): StaffAuth | undefined {
-  return db
-    .prepare("SELECT id, name, username, password_hash FROM staff WHERE username = ?")
-    .get(username.trim().toLowerCase()) as StaffAuth | undefined;
+export async function getStaffByUsername(username: string): Promise<StaffAuth | undefined> {
+  return queryOne<StaffAuth>(
+    "SELECT id, name, username, password_hash FROM staff WHERE username = $1",
+    [username.trim().toLowerCase()]
+  );
 }
 
-export function verifyStaffCredentials(
+export async function verifyStaffCredentials(
   username: string,
   password: string
-): StaffAuth | null {
-  const staff = getStaffByUsername(username);
+): Promise<StaffAuth | null> {
+  const staff = await getStaffByUsername(username);
   if (!staff?.password_hash) return null;
   if (!verifyPassword(password, staff.password_hash)) return null;
   return staff;
 }
 
-export function ensureStaffCredentials() {
-  const rows = db.prepare("SELECT id, name, username, password_hash FROM staff").all() as StaffAuth[];
+export async function ensureStaffCredentials() {
+  const allStaff = await query<StaffAuth>("SELECT id, name, username, password_hash FROM staff");
+
   const defaults: Record<number, { username: string; password: string }> = {
     1: { username: "staff1", password: "staff1" },
     2: { username: "staff2", password: "staff2" },
     3: { username: "ghassan", password: "ghassan" },
   };
-  for (const row of rows) {
+  for (const row of allStaff) {
     const def = defaults[row.id];
     if (!def) continue;
     if (!row.username || !row.password_hash) {
-      db.prepare("UPDATE staff SET username = ?, password_hash = ? WHERE id = ?").run(
+      await execute("UPDATE staff SET username = $1, password_hash = $2 WHERE id = $3", [
         def.username,
         hashPassword(def.password),
-        row.id
-      );
+        row.id,
+      ]);
     }
   }
 }
