@@ -55,11 +55,21 @@ export default function PosPage() {
 
   useEffect(() => {
     if (!pendingPrint || !lastBill) return;
+    document.body.classList.add("receipt-printing");
+    const removePrintClass = () => {
+      document.body.classList.remove("receipt-printing");
+    };
+    window.addEventListener("afterprint", removePrintClass, { once: true });
     const timer = window.setTimeout(() => {
       window.print();
       setPendingPrint(false);
-    }, 100);
-    return () => window.clearTimeout(timer);
+      window.setTimeout(removePrintClass, 1000);
+    }, 150);
+    return () => {
+      window.clearTimeout(timer);
+      window.removeEventListener("afterprint", removePrintClass);
+      removePrintClass();
+    };
   }, [lastBill, pendingPrint]);
 
   function loadOrderIntoCart(order: Order, lines: OrderLine[]) {
@@ -1078,15 +1088,18 @@ function BillReceipt({
           <p>{formatDateTime(printedAt)}</p>
         </div>
 
+        <div className="bill-table-head">
+          <span>Item</span>
+          <span>Qty</span>
+          <span>Price</span>
+          <span>Total</span>
+        </div>
         <div className="bill-lines">
           {lines.map((line) => (
             <div key={line.id} className="bill-line">
-              <div>
-                <strong>{line.item_name}</strong>
-                <span>
-                  {line.qty} x {line.unit_price.toFixed(3)}
-                </span>
-              </div>
+              <strong>{line.item_name}</strong>
+              <span>{line.qty}</span>
+              <span>{line.unit_price.toFixed(3)}</span>
               <span>{line.line_total.toFixed(3)}</span>
             </div>
           ))}
