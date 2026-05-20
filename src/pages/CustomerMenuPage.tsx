@@ -2,6 +2,16 @@ import { useEffect, useMemo, useState } from "react";
 import { api, Category, MenuItem } from "../api";
 import { Money } from "../components/Money";
 
+const ITEM_IMAGES: Record<string, string> = {
+  v60: "/menu-images/v60.jpg",
+  chemex: "/menu-images/chemex.jpg",
+  "turkish coffee": "/menu-images/turkish-coffee.jpg",
+};
+
+function itemImage(item: MenuItem) {
+  return ITEM_IMAGES[item.name.trim().toLowerCase()];
+}
+
 export default function CustomerMenuPage() {
   const [menu, setMenu] = useState<MenuItem[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -69,13 +79,23 @@ export default function CustomerMenuPage() {
             <div className="customer-menu-items">
               {items.map((item) => (
                 <article key={item.id} className="customer-menu-item">
-                  <div>
-                    <h3>{item.name}</h3>
-                    {item.stock_qty <= 0 && <span className="customer-sold-out">Sold out</span>}
+                  {itemImage(item) && (
+                    <img
+                      className="customer-menu-item-image"
+                      src={itemImage(item)}
+                      alt={item.name}
+                      loading="lazy"
+                    />
+                  )}
+                  <div className="customer-menu-item-row">
+                    <div>
+                      <h3>{item.name}</h3>
+                      {item.stock_qty <= 0 && <span className="customer-sold-out">Sold out</span>}
+                    </div>
+                    <strong>
+                      <Money amount={item.price} />
+                    </strong>
                   </div>
-                  <strong>
-                    <Money amount={item.price} />
-                  </strong>
                 </article>
               ))}
             </div>
