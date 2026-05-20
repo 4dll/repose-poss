@@ -41,13 +41,31 @@ export async function getOpenTableOrder(tableNumber: number) {
   );
 }
 
-export async function getOrderWithLines(orderId: number) {
+export async function getOrderWithLines(orderId: number, client?: pg.PoolClient) {
+  if (client) {
+    const order = await clientQueryOne(client, "SELECT * FROM orders WHERE id = $1", [orderId]);
+    if (!order) return null;
+    const lines = await clientQuery(
+      client,
+      "SELECT * FROM order_lines WHERE order_id = $1 ORDER BY id",
+      [orderId]
+    );
+    return { order, lines };
+  }
   const order = await queryOne("SELECT * FROM orders WHERE id = $1", [orderId]);
   if (!order) return null;
   const lines = await query("SELECT * FROM order_lines WHERE order_id = $1 ORDER BY id", [
     orderId,
   ]);
   return { order, lines };
+}
+
+function normalizeLines(lines: LineInput[]): LineInput[] {
+  return lines.map((l) => ({
+    menuItemId: Number(l.menuItemId),
+    qty: Number(l.qty),
+    unitPrice: Number(l.unitPrice),
+  }));
 }
 
 async function validateStock(client: pg.PoolClient, lines: LineInput[]) {
@@ -58,8 +76,9 @@ async function validateStock(client: pg.PoolClient, lines: LineInput[]) {
       [line.menuItemId]
     );
     if (!item) throw new Error(`Item ${line.menuItemId} not found`);
-    if (item.stock_qty < line.qty) {
-      throw new Error(`Not enough stock for ${item.name} (have ${item.stock_qty})`);
+    const stock = Number(item.stock_qty);
+    if (stock < line.qty) {
+      throw new Error(`Not enough stock for ${item.name} (have ${stock})`);
     }
   }
 }
@@ -141,6 +160,7 @@ export async function updateOpenOrder(
   discountType?: string | null,
   discountValue?: number
 ) {
+  const normalized = normalizeLines(lines);
   return transaction(async (client) => {
     const order = await clientQueryOne<{ status: string }>(
       client,
@@ -151,12 +171,12 @@ export async function updateOpenOrder(
     if (order.status !== "open") throw new Error("Order is already paid");
 
     const { subtotal, discountAmount, total, discountValue: dVal } = calcTotals(
-      lines,
+      normalized,
       discountType,
       discountValue
     );
 
-    await replaceOrderLines(client, orderId, lines, "cash");
+    await replaceOrderLines(client, orderId, normalized, "cash");
 
     await clientExecute(
       client,
@@ -166,7 +186,9 @@ export async function updateOpenOrder(
       [discountType || null, dVal, subtotal, discountAmount, total, orderId]
     );
 
-    return getOrderWithLines(orderId);
+    const full = await getOrderWithLines(orderId, client);
+    if (!full) throw new Error("Order not found after update");
+    return full;
   });
 }
 
@@ -255,7 +277,9 @@ export async function payOrder(orderId: number, payment: PaymentSplit) {
       [label, cashAmount, visaAmount, orderId]
     );
 
-    return getOrderWithLines(orderId);
+    const full = await getOrderWithLines(orderId, client);
+    if (!full) throw new Error("Order not found after payment");
+    return full;
   });
 }
 
@@ -266,9 +290,10 @@ export async function createTakeawayOrder(
   discountType?: string | null,
   discountValue?: number
 ) {
+  const normalized = normalizeLines(lines);
   return transaction(async (client) => {
     const { subtotal, discountAmount, total, discountValue: dVal } = calcTotals(
-      lines,
+      normalized,
       discountType,
       discountValue
     );
@@ -303,10 +328,12 @@ export async function createTakeawayOrder(
     );
     if (!inserted) throw new Error("Failed to create order");
 
-    await replaceOrderLines(client, inserted.id, lines, lineMethod);
+    await replaceOrderLines(client, inserted.id, normalized, lineMethod);
     if (label === "split") await applySplitToLines(client, inserted.id, cashAmount, visaAmount);
 
-    return getOrderWithLines(inserted.id);
+    const full = await getOrderWithLines(inserted.id, client);
+    if (!full) throw new Error("Order not found after create");
+    return full;
   });
 }
 

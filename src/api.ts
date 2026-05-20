@@ -5,12 +5,23 @@ async function request<T>(url: string, options?: RequestInit): Promise<T> {
     headers: { "Content-Type": "application/json" },
     ...options,
   });
-  const data = await res.json().catch(() => ({}));
+  const text = await res.text();
+  let data: { error?: string } = {};
+  if (text) {
+    try {
+      data = JSON.parse(text) as { error?: string };
+    } catch {
+      data = { error: text.slice(0, 200) };
+    }
+  }
   if (!res.ok) {
-    const msg = data.error || res.statusText || "Request failed";
+    const msg =
+      data.error ||
+      res.statusText ||
+      (res.status ? `Request failed (${res.status})` : "Request failed — is the API server running?");
     throw new Error(msg);
   }
-  return data as T;
+  return (text ? JSON.parse(text) : {}) as T;
 }
 
 export type Staff = { id: number; name: string; username: string };

@@ -24,10 +24,29 @@ import {
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
+let dbReady = false;
+
 export async function createApp() {
+  if (!dbReady) {
+    const { initDb } = await import("./db.js");
+    await initDb();
+    dbReady = true;
+  }
+
   const app = express();
   app.use(cors());
   app.use(express.json());
+
+  // Vercel rewrites can strip the /api prefix from req.url
+  app.use((req, _res, next) => {
+    const url = req.url ?? "/";
+    const pathOnly = url.split("?")[0];
+    if (!pathOnly.startsWith("/api")) {
+      const qs = url.includes("?") ? url.slice(url.indexOf("?")) : "";
+      req.url = `/api${pathOnly.startsWith("/") ? pathOnly : `/${pathOnly}`}${qs}`;
+    }
+    next();
+  });
 
   app.get("/api/staff", async (_req, res) => {
     try {
@@ -645,6 +664,13 @@ export async function createApp() {
       res.json({ from, to, groupBy: groupBy || "day", items, totals });
     } catch (e) {
       res.status(500).json({ error: (e as Error).message });
+    }
+  });
+
+  app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+    console.error(err);
+    if (!res.headersSent) {
+      res.status(500).json({ error: err.message || "Server error" });
     }
   });
 

@@ -1,7 +1,5 @@
-import { initDb } from "./db.js";
 import { createApp } from "./app.js";
 
-await initDb();
 const app = await createApp();
 
 const PORT = Number(process.env.PORT) || 3002;

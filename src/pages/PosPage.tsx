@@ -295,7 +295,14 @@ export default function PosPage() {
   }
 
   async function saveTableOrder() {
-    if (!openOrderId || !selectedShiftId) return;
+    if (!openOrderId || !selectedShiftId) {
+      setError("Select a table and open an order first");
+      return;
+    }
+    if (cart.length === 0) {
+      setError("Add at least one item before saving");
+      return;
+    }
     setLoading(true);
     setError("");
     try {
