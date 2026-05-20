@@ -73,6 +73,17 @@ export async function createApp() {
     }
   });
 
+  app.post("/api/auth/login", async (req, res) => {
+    try {
+      const { username, password } = req.body;
+      const staff = await verifyStaffCredentials(username, password);
+      if (!staff) return res.status(401).json({ error: "Wrong username or password" });
+      res.json({ id: staff.id, name: staff.name, username: staff.username });
+    } catch (e) {
+      res.status(500).json({ error: (e as Error).message });
+    }
+  });
+
   app.get("/api/shifts/active", async (_req, res) => {
     try {
       res.json(

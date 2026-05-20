@@ -96,6 +96,11 @@ export type OrderLine = {
 
 export const api = {
   staff: () => request<Staff[]>("/staff"),
+  login: (username: string, password: string) =>
+    request<Staff>("/auth/login", {
+      method: "POST",
+      body: JSON.stringify({ username, password }),
+    }),
   categories: () => request<Category[]>("/categories"),
   addCategory: (name: string) =>
     request<Category>("/categories", { method: "POST", body: JSON.stringify({ name }) }),
