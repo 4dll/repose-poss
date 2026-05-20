@@ -37,12 +37,29 @@ export async function createApp() {
   app.use(cors());
   app.use(express.json());
 
-  // Vercel rewrites can strip the /api prefix from req.url
+  // Vercel: all /api/* requests are rewritten to /api/server?__vp=<rest> so one
+  // serverless entry exists. Restore the real path before Express routing.
   app.use((req, _res, next) => {
-    const url = req.url ?? "/";
-    const pathOnly = url.split("?")[0];
+    const raw = req.url ?? "/";
+    if (process.env.VERCEL && raw.includes("__vp=")) {
+      try {
+        const u = new URL(raw, "http://internal.local");
+        const inner = u.searchParams.get("__vp");
+        if (inner !== null) {
+          u.searchParams.delete("__vp");
+          const decoded = decodeURIComponent(inner.replace(/^\/+/, ""));
+          const q = u.searchParams.toString();
+          req.url = `/api/${decoded}${q ? `?${q}` : ""}`;
+        }
+      } catch {
+        /* keep raw */
+      }
+      next();
+      return;
+    }
+    const pathOnly = raw.split("?")[0];
     if (!pathOnly.startsWith("/api")) {
-      const qs = url.includes("?") ? url.slice(url.indexOf("?")) : "";
+      const qs = raw.includes("?") ? raw.slice(raw.indexOf("?")) : "";
       req.url = `/api${pathOnly.startsWith("/") ? pathOnly : `/${pathOnly}`}${qs}`;
     }
     next();

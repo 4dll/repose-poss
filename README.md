@@ -49,9 +49,11 @@ Open **http://localhost:5173**.
 2. Import the project in [vercel.com](https://vercel.com) → **Add New Project**.
 3. Add environment variable:
    - `DATABASE_URL` = your Supabase Postgres URI (transaction pooler)
-4. Deploy. Vercel will run `npm run build` and serve the React app; `/api/*` routes to the serverless API.
+4. Deploy. Vercel runs `npm run build`, serves the React app from `dist/client`, and routes every `/api/*` request through [`api/server.ts`](api/server.ts) (see `vercel.json` rewrites).
 
 After deploy, open your Vercel URL (e.g. `https://your-app.vercel.app`). Multiple devices can use the same URL and share one database.
+
+If the UI shows **`NOT_FOUND`** when calling the API, redeploy after pulling the latest changes — that usually means `/api` was not wired to the serverless function.
 
 ### 3. Seed menu (first time)
 
