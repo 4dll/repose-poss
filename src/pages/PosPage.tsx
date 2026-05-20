@@ -18,6 +18,7 @@ import StaffLoginModal from "../components/StaffLoginModal";
 type Bill = {
   order: Order;
   lines: OrderLine[];
+  draft?: boolean;
 };
 
 export default function PosPage() {
@@ -90,6 +91,64 @@ export default function PosPage() {
   function showAndPrintBill(bill: Bill) {
     setLastBill(bill);
     setPendingPrint(true);
+  }
+
+  function draftBill(): Bill {
+    return {
+      draft: true,
+      order: {
+        id: 0,
+        shift_id: selectedShiftId ?? 0,
+        created_at: new Date().toISOString(),
+        updated_at: null,
+        service_type: serviceType ?? "takeaway",
+        table_number: serviceType === "dine_in" ? selectedTable : null,
+        status: "open",
+        payment_method: null,
+        subtotal,
+        discount_amount: discountAmount,
+        total,
+        cash_amount: 0,
+        visa_amount: 0,
+        discount_type: discountType || null,
+        discount_value: dVal,
+      },
+      lines: cart.map((line, index) => ({
+        id: index + 1,
+        menu_item_id: line.menuItemId,
+        item_name: line.name,
+        qty: line.qty,
+        unit_price: line.unitPrice,
+        line_total: line.qty * line.unitPrice,
+        payment_method: "cash",
+      })),
+    };
+  }
+
+  async function printCurrentBill() {
+    if (cart.length === 0) {
+      setError("Add items before printing a bill");
+      return;
+    }
+    setLoading(true);
+    setError("");
+    try {
+      if (serviceType === "dine_in" && openOrderId) {
+        const bill = await api.updateOrder(openOrderId, {
+          lines: linesPayload(),
+          discountType: discountType || undefined,
+          discountValue: dVal || undefined,
+        });
+        showAndPrintBill({ ...bill, draft: true });
+        await load();
+      } else {
+        showAndPrintBill(draftBill());
+      }
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setLoading(false);
+    }
   }
 
   const load = useCallback(async () => {
@@ -882,6 +941,15 @@ export default function PosPage() {
                       type="button"
                       className="btn-secondary"
                       style={{ width: "100%" }}
+                      disabled={loading || cart.length === 0}
+                      onClick={printCurrentBill}
+                    >
+                      Print bill
+                    </button>
+                    <button
+                      type="button"
+                      className="btn-secondary"
+                      style={{ width: "100%" }}
                       disabled={loading || !openOrderId}
                       onClick={saveTableOrder}
                     >
@@ -907,15 +975,26 @@ export default function PosPage() {
                     </button>
                   </div>
                 ) : (
-                  <button
-                    type="button"
-                    className="btn-primary"
-                    style={{ width: "100%", marginTop: "1rem" }}
-                    disabled={loading || !selectedShiftId}
-                    onClick={completeTakeaway}
-                  >
-                    {loading ? "Saving…" : "Complete order"}
-                  </button>
+                  <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem", marginTop: "1rem" }}>
+                    <button
+                      type="button"
+                      className="btn-secondary"
+                      style={{ width: "100%" }}
+                      disabled={loading || cart.length === 0}
+                      onClick={printCurrentBill}
+                    >
+                      Print bill
+                    </button>
+                    <button
+                      type="button"
+                      className="btn-primary"
+                      style={{ width: "100%" }}
+                      disabled={loading || !selectedShiftId}
+                      onClick={completeTakeaway}
+                    >
+                      {loading ? "Saving…" : "Complete order"}
+                    </button>
+                  </div>
                 )}
               </div>
             </>
@@ -972,6 +1051,7 @@ function BillReceipt({
   onClose: () => void;
 }) {
   const { order, lines } = bill;
+  const isPaid = order.status === "paid" && !bill.draft;
   const printedAt = order.updated_at || order.created_at;
   const serviceLabel =
     order.service_type === "dine_in" && order.table_number
@@ -992,7 +1072,8 @@ function BillReceipt({
       <section className="bill-print" aria-label="Printed bill">
         <div className="bill-header">
           <h1>Repose Cafe</h1>
-          <p>Bill #{order.id}</p>
+          <p>{order.id ? `Bill #${order.id}` : "Draft bill"}</p>
+          {!isPaid && <p>Unpaid bill</p>}
           <p>{serviceLabel}</p>
           <p>{formatDateTime(printedAt)}</p>
         </div>
@@ -1023,17 +1104,21 @@ function BillReceipt({
             </div>
           )}
           <div className="bill-total">
-            <span>Total</span>
+            <span>{isPaid ? "Total" : "Amount due"}</span>
             <span>{order.total.toFixed(3)} OMR</span>
           </div>
-          <div>
-            <span>Cash</span>
-            <span>{order.cash_amount.toFixed(3)}</span>
-          </div>
-          <div>
-            <span>Visa</span>
-            <span>{order.visa_amount.toFixed(3)}</span>
-          </div>
+          {isPaid && (
+            <>
+              <div>
+                <span>Cash</span>
+                <span>{order.cash_amount.toFixed(3)}</span>
+              </div>
+              <div>
+                <span>Visa</span>
+                <span>{order.visa_amount.toFixed(3)}</span>
+              </div>
+            </>
+          )}
         </div>
 
         <p className="bill-footer">Thank you</p>
