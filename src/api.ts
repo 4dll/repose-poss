@@ -69,12 +69,17 @@ export type TableStatus = {
 export type Order = {
   id: number;
   shift_id: number;
+  created_at: string;
+  updated_at: string | null;
   service_type: string;
   table_number: number | null;
   status: string;
+  payment_method: string | null;
   subtotal: number;
   discount_amount: number;
   total: number;
+  cash_amount: number;
+  visa_amount: number;
   discount_type: string | null;
   discount_value: number;
 };
@@ -148,7 +153,11 @@ export const api = {
     visaAmount: number;
     discountType?: string;
     discountValue?: number;
-  }) => request("/orders", { method: "POST", body: JSON.stringify(body) }),
+  }) =>
+    request<{ order: Order; lines: OrderLine[] }>("/orders", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
   stock: () => request<MenuItem[]>("/stock"),
   adjustStock: (id: number, qtyChange: number, reason?: string) =>
     request<MenuItem>(`/stock/${id}/adjust`, {

@@ -15,6 +15,11 @@ import { Money } from "../components/Money";
 import ShiftReportModal from "../components/ShiftReportModal";
 import StaffLoginModal from "../components/StaffLoginModal";
 
+type Bill = {
+  order: Order;
+  lines: OrderLine[];
+};
+
 export default function PosPage() {
   const [menu, setMenu] = useState<MenuItem[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -44,6 +49,17 @@ export default function PosPage() {
   const [selectedTable, setSelectedTable] = useState<number | null>(null);
   const [openOrderId, setOpenOrderId] = useState<number | null>(null);
   const [tables, setTables] = useState<TableStatus[]>([]);
+  const [lastBill, setLastBill] = useState<Bill | null>(null);
+  const [pendingPrint, setPendingPrint] = useState(false);
+
+  useEffect(() => {
+    if (!pendingPrint || !lastBill) return;
+    const timer = window.setTimeout(() => {
+      window.print();
+      setPendingPrint(false);
+    }, 100);
+    return () => window.clearTimeout(timer);
+  }, [lastBill, pendingPrint]);
 
   function loadOrderIntoCart(order: Order, lines: OrderLine[]) {
     setOpenOrderId(order.id);
@@ -69,6 +85,11 @@ export default function PosPage() {
     setOpenOrderId(null);
     setSelectedTable(null);
     setSelectedCategoryId(null);
+  }
+
+  function showAndPrintBill(bill: Bill) {
+    setLastBill(bill);
+    setPendingPrint(true);
   }
 
   const load = useCallback(async () => {
@@ -333,9 +354,10 @@ export default function PosPage() {
         discountType: discountType || undefined,
         discountValue: dVal || undefined,
       });
-      await api.payOrder(openOrderId, getPaymentAmounts());
+      const bill = await api.payOrder(openOrderId, getPaymentAmounts());
       setSuccess(`Table ${selectedTable} paid — table is free`);
       setTimeout(() => setSuccess(""), 2500);
+      showAndPrintBill(bill);
       resetOrderSession();
       setServiceType("dine_in");
       await load();
@@ -351,13 +373,14 @@ export default function PosPage() {
     setLoading(true);
     setError("");
     try {
-      await api.createTakeawayOrder({
+      const bill = await api.createTakeawayOrder({
         shiftId: selectedShiftId,
         lines: linesPayload(),
         ...getPaymentAmounts(),
         discountType: discountType || undefined,
         discountValue: dVal || undefined,
       });
+      showAndPrintBill(bill);
       resetOrderSession();
       setServiceType("takeaway");
       setSuccess("Takeaway order complete");
@@ -925,6 +948,96 @@ export default function PosPage() {
           }}
         />
       )}
+
+      {lastBill && (
+        <BillReceipt
+          bill={lastBill}
+          onPrint={() => {
+            setPendingPrint(true);
+          }}
+          onClose={() => setLastBill(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+function BillReceipt({
+  bill,
+  onPrint,
+  onClose,
+}: {
+  bill: Bill;
+  onPrint: () => void;
+  onClose: () => void;
+}) {
+  const { order, lines } = bill;
+  const printedAt = order.updated_at || order.created_at;
+  const serviceLabel =
+    order.service_type === "dine_in" && order.table_number
+      ? `Dine in - Table ${order.table_number}`
+      : "Takeaway";
+
+  return (
+    <div className="bill-overlay">
+      <div className="bill-actions no-print">
+        <button type="button" className="btn-secondary" onClick={onClose}>
+          Close
+        </button>
+        <button type="button" className="btn-primary" onClick={onPrint}>
+          Print bill
+        </button>
+      </div>
+
+      <section className="bill-print" aria-label="Printed bill">
+        <div className="bill-header">
+          <h1>Repose Cafe</h1>
+          <p>Bill #{order.id}</p>
+          <p>{serviceLabel}</p>
+          <p>{formatDateTime(printedAt)}</p>
+        </div>
+
+        <div className="bill-lines">
+          {lines.map((line) => (
+            <div key={line.id} className="bill-line">
+              <div>
+                <strong>{line.item_name}</strong>
+                <span>
+                  {line.qty} x {line.unit_price.toFixed(3)}
+                </span>
+              </div>
+              <span>{line.line_total.toFixed(3)}</span>
+            </div>
+          ))}
+        </div>
+
+        <div className="bill-summary">
+          <div>
+            <span>Subtotal</span>
+            <span>{order.subtotal.toFixed(3)}</span>
+          </div>
+          {order.discount_amount > 0 && (
+            <div>
+              <span>Discount</span>
+              <span>-{order.discount_amount.toFixed(3)}</span>
+            </div>
+          )}
+          <div className="bill-total">
+            <span>Total</span>
+            <span>{order.total.toFixed(3)} OMR</span>
+          </div>
+          <div>
+            <span>Cash</span>
+            <span>{order.cash_amount.toFixed(3)}</span>
+          </div>
+          <div>
+            <span>Visa</span>
+            <span>{order.visa_amount.toFixed(3)}</span>
+          </div>
+        </div>
+
+        <p className="bill-footer">Thank you</p>
+      </section>
     </div>
   );
 }
