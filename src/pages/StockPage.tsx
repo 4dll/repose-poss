@@ -1,23 +1,27 @@
 import { FormEvent, useEffect, useState } from "react";
 import { api, Category, MenuItem } from "../api";
-import { Money } from "../components/Money";
 
 export default function StockPage() {
   const [items, setItems] = useState<MenuItem[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [error, setError] = useState("");
   const [newName, setNewName] = useState("");
+  const [newCost, setNewCost] = useState("");
   const [newPrice, setNewPrice] = useState("");
   const [newStock, setNewStock] = useState("0");
   const [newCategoryId, setNewCategoryId] = useState("");
   const [newCategoryName, setNewCategoryName] = useState("");
   const [adjustQty, setAdjustQty] = useState<Record<number, string>>({});
   const [adjustReason, setAdjustReason] = useState<Record<number, string>>({});
+  const [editCost, setEditCost] = useState<Record<number, string>>({});
+  const [editPrice, setEditPrice] = useState<Record<number, string>>({});
 
   async function load() {
     const [stock, cats] = await Promise.all([api.stock(), api.categories()]);
     setItems(stock);
     setCategories(cats);
+    setEditCost(Object.fromEntries(stock.map((item) => [item.id, String(item.cost_price ?? 0)])));
+    setEditPrice(Object.fromEntries(stock.map((item) => [item.id, String(item.price)])));
     if (cats.length && !newCategoryId) setNewCategoryId(String(cats[0].id));
   }
 
@@ -45,10 +49,12 @@ export default function StockPage() {
       await api.addMenuItem({
         name: newName.trim(),
         price: parseFloat(newPrice),
+        costPrice: parseFloat(newCost) || 0,
         stockQty: parseInt(newStock, 10) || 0,
         categoryId: parseInt(newCategoryId, 10),
       });
       setNewName("");
+      setNewCost("");
       setNewPrice("");
       setNewStock("0");
       await load();
@@ -64,6 +70,30 @@ export default function StockPage() {
     try {
       await api.adjustStock(id, qty, adjustReason[id]);
       setAdjustQty((p) => ({ ...p, [id]: "" }));
+      await load();
+    } catch (err) {
+      setError((err as Error).message);
+    }
+  }
+
+  async function saveItem(id: number) {
+    setError("");
+    try {
+      await api.updateMenuItem(id, {
+        price: parseFloat(editPrice[id]) || 0,
+        costPrice: parseFloat(editCost[id]) || 0,
+      });
+      await load();
+    } catch (err) {
+      setError((err as Error).message);
+    }
+  }
+
+  async function deleteItem(item: MenuItem) {
+    if (!confirm(`Delete ${item.name}? It will be removed from POS and customer menu.`)) return;
+    setError("");
+    try {
+      await api.deleteMenuItem(item.id);
       await load();
     } catch (err) {
       setError((err as Error).message);
@@ -127,7 +157,18 @@ export default function StockPage() {
             <input value={newName} onChange={(e) => setNewName(e.target.value)} required />
           </label>
           <label>
-            Price (OMR)
+            Cost (OMR)
+            <input
+              type="number"
+              step="0.001"
+              min="0"
+              value={newCost}
+              onChange={(e) => setNewCost(e.target.value)}
+              placeholder="0.000"
+            />
+          </label>
+          <label>
+            Sale price (OMR)
             <input
               type="number"
               step="0.001"
@@ -163,9 +204,11 @@ export default function StockPage() {
                 <tr>
                   <th>Item</th>
                   <th>Category</th>
-                  <th>Price</th>
+                  <th>Cost</th>
+                  <th>Sale price</th>
                   <th>In stock</th>
                   <th>Adjust (+/−)</th>
+                  <th></th>
                   <th></th>
                 </tr>
               </thead>
@@ -182,7 +225,28 @@ export default function StockPage() {
                     </td>
                     <td>{item.category_name || "—"}</td>
                     <td>
-                      <Money amount={item.price} />
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.001"
+                        style={{ width: 90 }}
+                        value={editCost[item.id] ?? String(item.cost_price ?? 0)}
+                        onChange={(e) =>
+                          setEditCost((p) => ({ ...p, [item.id]: e.target.value }))
+                        }
+                      />
+                    </td>
+                    <td>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.001"
+                        style={{ width: 90 }}
+                        value={editPrice[item.id] ?? String(item.price)}
+                        onChange={(e) =>
+                          setEditPrice((p) => ({ ...p, [item.id]: e.target.value }))
+                        }
+                      />
                     </td>
                     <td>
                       <strong>{item.stock_qty}</strong>
@@ -209,7 +273,20 @@ export default function StockPage() {
                     </td>
                     <td>
                       <button type="button" className="btn-secondary" onClick={() => adjust(item.id)}>
-                        Update
+                        Stock
+                      </button>
+                    </td>
+                    <td>
+                      <button type="button" className="btn-secondary" onClick={() => saveItem(item.id)}>
+                        Save
+                      </button>
+                      <button
+                        type="button"
+                        className="btn-danger"
+                        style={{ marginLeft: 8 }}
+                        onClick={() => deleteItem(item)}
+                      >
+                        Delete
                       </button>
                     </td>
                   </tr>

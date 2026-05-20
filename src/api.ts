@@ -35,6 +35,7 @@ export type MenuItem = {
   id: number;
   name: string;
   price: number;
+  cost_price: number;
   stock_qty: number;
   low_stock_threshold: number;
   active: number;
@@ -90,7 +91,9 @@ export type OrderLine = {
   item_name: string;
   qty: number;
   unit_price: number;
+  cost_price: number;
   line_total: number;
+  cost_total: number;
   payment_method: string;
 };
 
@@ -172,11 +175,16 @@ export const api = {
   addMenuItem: (body: {
     name: string;
     price: number;
+    costPrice?: number;
     stockQty?: number;
     categoryId: number;
   }) => request<MenuItem>("/menu", { method: "POST", body: JSON.stringify(body) }),
-  updateMenuItem: (id: number, body: Partial<MenuItem>) =>
+  updateMenuItem: (
+    id: number,
+    body: Partial<MenuItem> & { costPrice?: number; stockQty?: number; categoryId?: number }
+  ) =>
     request<MenuItem>(`/menu/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
+  deleteMenuItem: (id: number) => request<{ ok: boolean }>(`/menu/${id}`, { method: "DELETE" }),
   dailyReport: (date: string) => request<PeriodReport>(`/reports/daily?date=${date}`),
   monthlyReport: (month: string) => request<PeriodReport>(`/reports/monthly?month=${month}`),
   rangeReport: (from: string, to: string) =>
@@ -195,7 +203,9 @@ export type ShiftReport = {
     item_name: string;
     qty: number;
     unit_price: number;
+    cost_price: number;
     line_total: number;
+    cost_total: number;
     payment_method: string;
     order_time: string;
   }[];
@@ -205,6 +215,8 @@ export type ShiftReport = {
     items_sold: number;
     order_count: number;
     grand_total: number;
+    cost_total: number;
+    profit_total: number;
     discount_total: number;
   };
 };
@@ -213,15 +225,22 @@ export type PeriodReport = {
   from: string;
   to: string;
   summary: ShiftReport["summary"];
-  byDay: { day: string; revenue: number; items: number }[];
+  byDay: { day: string; revenue: number; cost: number; profit: number; items: number }[];
 };
 
 export type ItemsReport = {
   from: string;
   to: string;
   groupBy: string;
-  totals: { item_name: string; qty_sold: number; revenue: number }[];
-  items: { item_name: string; period: string; qty_sold: number; revenue: number }[];
+  totals: { item_name: string; qty_sold: number; revenue: number; cost: number; profit: number }[];
+  items: {
+    item_name: string;
+    period: string;
+    qty_sold: number;
+    revenue: number;
+    cost: number;
+    profit: number;
+  }[];
 };
 
 export function formatDateTime(iso: string) {

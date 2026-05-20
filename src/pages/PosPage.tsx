@@ -130,7 +130,9 @@ export default function PosPage() {
         item_name: line.name,
         qty: line.qty,
         unit_price: line.unitPrice,
+        cost_price: 0,
         line_total: line.qty * line.unitPrice,
+        cost_total: 0,
         payment_method: "cash",
       })),
     };

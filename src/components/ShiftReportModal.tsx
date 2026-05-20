@@ -39,6 +39,8 @@ export default function ShiftReportModal({ report, onClose }: Props) {
           <Stat label="Items sold" value={String(summary.items_sold)} />
           <Stat label="Cash" value={formatMoney(summary.cash_total)} />
           <Stat label="Visa" value={formatMoney(summary.visa_total)} />
+          <Stat label="Cost" value={formatMoney(summary.cost_total)} />
+          <Stat label="Benefit" value={formatMoney(summary.profit_total)} />
           <Stat label="Discounts" value={formatMoney(summary.discount_total)} />
           <Stat label="Grand total" value={formatMoney(summary.grand_total)} highlight />
         </div>
@@ -55,6 +57,8 @@ export default function ShiftReportModal({ report, onClose }: Props) {
                   <th>Item</th>
                   <th>Qty</th>
                   <th>Pay</th>
+                  <th>Cost</th>
+                  <th>Benefit</th>
                   <th>Total</th>
                 </tr>
               </thead>
@@ -67,6 +71,8 @@ export default function ShiftReportModal({ report, onClose }: Props) {
                     <td>
                       <span className={`badge badge-${l.payment_method}`}>{l.payment_method}</span>
                     </td>
+                    <td>{formatMoney(l.cost_total)}</td>
+                    <td>{formatMoney(l.line_total - l.cost_total)}</td>
                     <td>{formatMoney(l.line_total)}</td>
                   </tr>
                 ))}

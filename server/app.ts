@@ -186,17 +186,27 @@ export async function createApp() {
       [shiftId]
     );
 
-    const totals = await queryOne<{
+    const orderTotals = await queryOne<{
       cash_total: number;
       visa_total: number;
-      items_sold: number;
       order_count: number;
     }>(
       `SELECT
-         COALESCE(SUM(o.cash_amount), 0) as cash_total,
-         COALESCE(SUM(o.visa_amount), 0) as visa_total,
+         COALESCE(SUM(cash_amount), 0) as cash_total,
+         COALESCE(SUM(visa_amount), 0) as visa_total,
+         COUNT(*) as order_count
+       FROM orders
+       WHERE shift_id = $1 AND status = 'paid'`,
+      [shiftId]
+    );
+
+    const lineTotals = await queryOne<{
+      items_sold: number;
+      cost_total: number;
+    }>(
+      `SELECT
          COALESCE(SUM(ol.qty), 0) as items_sold,
-         COUNT(DISTINCT o.id) as order_count
+         COALESCE(SUM(ol.cost_total), 0) as cost_total
        FROM orders o
        JOIN order_lines ol ON ol.order_id = o.id
        WHERE o.shift_id = $1 AND o.status = 'paid'`,
@@ -213,8 +223,13 @@ export async function createApp() {
       shift,
       lines,
       summary: {
-        ...totals,
-        grand_total: Number(totals?.cash_total) + Number(totals?.visa_total),
+        ...orderTotals,
+        ...lineTotals,
+        grand_total: Number(orderTotals?.cash_total) + Number(orderTotals?.visa_total),
+        profit_total:
+          Number(orderTotals?.cash_total) +
+          Number(orderTotals?.visa_total) -
+          Number(lineTotals?.cost_total),
         discount_total: discountTotal?.total ?? 0,
       },
     };
@@ -305,7 +320,7 @@ export async function createApp() {
 
   app.post("/api/menu", async (req, res) => {
     try {
-      const { name, price, stockQty, lowStockThreshold, categoryId } = req.body;
+      const { name, price, costPrice, stockQty, lowStockThreshold, categoryId } = req.body;
       if (!name || price == null) return res.status(400).json({ error: "Name and price required" });
       if (!categoryId) return res.status(400).json({ error: "Category required" });
 
@@ -313,9 +328,9 @@ export async function createApp() {
       if (!cat) return res.status(400).json({ error: "Invalid category" });
 
       const row = await queryOne(
-        `INSERT INTO menu_items (name, price, stock_qty, low_stock_threshold, category_id)
-         VALUES ($1, $2, $3, $4, $5) RETURNING id`,
-        [name, price, stockQty ?? 0, lowStockThreshold ?? 5, categoryId]
+        `INSERT INTO menu_items (name, price, cost_price, stock_qty, low_stock_threshold, category_id)
+         VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
+        [name, price, costPrice ?? 0, stockQty ?? 0, lowStockThreshold ?? 5, categoryId]
       );
       res.json(await queryOne(`${menuSelect} WHERE m.id = $1`, [(row as { id: number }).id]));
     } catch (e) {
@@ -326,7 +341,7 @@ export async function createApp() {
   app.patch("/api/menu/:id", async (req, res) => {
     try {
       const id = Number(req.params.id);
-      const { name, price, stockQty, lowStockThreshold, active } = req.body;
+      const { name, price, costPrice, stockQty, lowStockThreshold, active } = req.body;
       const item = await queryOne("SELECT * FROM menu_items WHERE id = $1", [id]);
       if (!item) return res.status(404).json({ error: "Not found" });
 
@@ -334,14 +349,16 @@ export async function createApp() {
         `UPDATE menu_items SET
           name = COALESCE($1, name),
           price = COALESCE($2, price),
-          stock_qty = COALESCE($3, stock_qty),
-          low_stock_threshold = COALESCE($4, low_stock_threshold),
-          active = COALESCE($5, active),
-          category_id = COALESCE($6, category_id)
-         WHERE id = $7`,
+          cost_price = COALESCE($3, cost_price),
+          stock_qty = COALESCE($4, stock_qty),
+          low_stock_threshold = COALESCE($5, low_stock_threshold),
+          active = COALESCE($6, active),
+          category_id = COALESCE($7, category_id)
+         WHERE id = $8`,
         [
           name ?? null,
           price ?? null,
+          costPrice ?? null,
           stockQty ?? null,
           lowStockThreshold ?? null,
           active ?? null,
@@ -351,6 +368,18 @@ export async function createApp() {
       );
 
       res.json(await queryOne(`${menuSelect} WHERE m.id = $1`, [id]));
+    } catch (e) {
+      res.status(500).json({ error: (e as Error).message });
+    }
+  });
+
+  app.delete("/api/menu/:id", async (req, res) => {
+    try {
+      const id = Number(req.params.id);
+      const item = await queryOne("SELECT * FROM menu_items WHERE id = $1", [id]);
+      if (!item) return res.status(404).json({ error: "Not found" });
+      await execute("UPDATE menu_items SET active = FALSE WHERE id = $1", [id]);
+      res.json({ ok: true });
     } catch (e) {
       res.status(500).json({ error: (e as Error).message });
     }
@@ -570,17 +599,28 @@ export async function createApp() {
   });
 
   async function getPeriodReport(from: string, to: string) {
-    const totals = await queryOne<{
+    const orderTotals = await queryOne<{
       cash_total: number;
       visa_total: number;
-      items_sold: number;
       order_count: number;
     }>(
       `SELECT
-         COALESCE(SUM(o.cash_amount), 0) as cash_total,
-         COALESCE(SUM(o.visa_amount), 0) as visa_total,
+         COALESCE(SUM(cash_amount), 0) as cash_total,
+         COALESCE(SUM(visa_amount), 0) as visa_total,
+         COUNT(*) as order_count
+       FROM orders
+       WHERE created_at::date >= $1::date AND created_at::date <= $2::date
+         AND status = 'paid'`,
+      [from, to]
+    );
+
+    const lineTotals = await queryOne<{
+      items_sold: number;
+      cost_total: number;
+    }>(
+      `SELECT
          COALESCE(SUM(ol.qty), 0) as items_sold,
-         COUNT(DISTINCT o.id) as order_count
+         COALESCE(SUM(ol.cost_total), 0) as cost_total
        FROM orders o
        JOIN order_lines ol ON ol.order_id = o.id
        WHERE o.created_at::date >= $1::date AND o.created_at::date <= $2::date
@@ -598,6 +638,8 @@ export async function createApp() {
     const byDay = await query(
       `SELECT o.created_at::date as day,
          SUM(ol.line_total) as revenue,
+         SUM(ol.cost_total) as cost,
+         SUM(ol.line_total - ol.cost_total) as profit,
          SUM(ol.qty) as items
        FROM order_lines ol
        JOIN orders o ON o.id = ol.order_id
@@ -612,8 +654,13 @@ export async function createApp() {
       from,
       to,
       summary: {
-        ...totals,
-        grand_total: Number(totals?.cash_total) + Number(totals?.visa_total),
+        ...orderTotals,
+        ...lineTotals,
+        grand_total: Number(orderTotals?.cash_total) + Number(orderTotals?.visa_total),
+        profit_total:
+          Number(orderTotals?.cash_total) +
+          Number(orderTotals?.visa_total) -
+          Number(lineTotals?.cost_total),
         discount_total: discounts?.total ?? 0,
       },
       byDay,
@@ -668,7 +715,9 @@ export async function createApp() {
            ol.item_name,
            TO_CHAR(o.created_at, '${fmt}') as period,
            SUM(ol.qty) as qty_sold,
-           SUM(ol.line_total) as revenue
+           SUM(ol.line_total) as revenue,
+           SUM(ol.cost_total) as cost,
+           SUM(ol.line_total - ol.cost_total) as profit
          FROM order_lines ol
          JOIN orders o ON o.id = ol.order_id
          WHERE o.created_at::date >= $1::date AND o.created_at::date <= $2::date
@@ -679,7 +728,12 @@ export async function createApp() {
       );
 
       const totals = await query(
-        `SELECT ol.item_name, SUM(ol.qty) as qty_sold, SUM(ol.line_total) as revenue
+        `SELECT
+           ol.item_name,
+           SUM(ol.qty) as qty_sold,
+           SUM(ol.line_total) as revenue,
+           SUM(ol.cost_total) as cost,
+           SUM(ol.line_total - ol.cost_total) as profit
          FROM order_lines ol
          JOIN orders o ON o.id = ol.order_id
          WHERE o.created_at::date >= $1::date AND o.created_at::date <= $2::date

@@ -171,6 +171,8 @@ export default function ReportsPage() {
                   <th>Item</th>
                   <th>Qty sold</th>
                   <th>Revenue</th>
+                  <th>Cost</th>
+                  <th>Benefit</th>
                 </tr>
               </thead>
               <tbody>
@@ -179,6 +181,8 @@ export default function ReportsPage() {
                     <td>{row.item_name}</td>
                     <td>{row.qty_sold}</td>
                     <td>{formatMoney(row.revenue)}</td>
+                    <td>{formatMoney(row.cost)}</td>
+                    <td>{formatMoney(row.profit)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -197,6 +201,8 @@ export default function ReportsPage() {
                       <th>Item</th>
                       <th>Qty</th>
                       <th>Revenue</th>
+                      <th>Cost</th>
+                      <th>Benefit</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -206,6 +212,8 @@ export default function ReportsPage() {
                         <td>{row.item_name}</td>
                         <td>{row.qty_sold}</td>
                         <td>{formatMoney(row.revenue)}</td>
+                        <td>{formatMoney(row.cost)}</td>
+                        <td>{formatMoney(row.profit)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -280,6 +288,8 @@ function PeriodSummary({ report, title }: { report: PeriodReport; title: string 
         <MiniStat label="Items" value={String(s.items_sold)} />
         <MiniStat label="Cash" value={formatMoney(s.cash_total)} />
         <MiniStat label="Visa" value={formatMoney(s.visa_total)} />
+        <MiniStat label="Cost" value={formatMoney(s.cost_total)} />
+        <MiniStat label="Benefit" value={formatMoney(s.profit_total)} />
         <MiniStat label="Discounts" value={formatMoney(s.discount_total)} />
         <MiniStat label="Total" value={formatMoney(s.grand_total)} />
       </div>
@@ -292,6 +302,8 @@ function PeriodSummary({ report, title }: { report: PeriodReport; title: string 
                 <tr>
                   <th>Day</th>
                   <th>Revenue</th>
+                  <th>Cost</th>
+                  <th>Benefit</th>
                   <th>Items</th>
                 </tr>
               </thead>
@@ -300,6 +312,8 @@ function PeriodSummary({ report, title }: { report: PeriodReport; title: string 
                   <tr key={d.day}>
                     <td>{d.day}</td>
                     <td>{formatMoney(d.revenue)}</td>
+                    <td>{formatMoney(d.cost)}</td>
+                    <td>{formatMoney(d.profit)}</td>
                     <td>{d.items}</td>
                   </tr>
                 ))}

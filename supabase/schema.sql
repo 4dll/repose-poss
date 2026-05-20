@@ -17,6 +17,7 @@ CREATE TABLE IF NOT EXISTS menu_items (
   id SERIAL PRIMARY KEY,
   name TEXT NOT NULL,
   price DOUBLE PRECISION NOT NULL,
+  cost_price DOUBLE PRECISION NOT NULL DEFAULT 0,
   stock_qty INTEGER NOT NULL DEFAULT 0,
   low_stock_threshold INTEGER NOT NULL DEFAULT 5,
   active BOOLEAN NOT NULL DEFAULT TRUE,
@@ -57,7 +58,9 @@ CREATE TABLE IF NOT EXISTS order_lines (
   item_name TEXT NOT NULL,
   qty INTEGER NOT NULL,
   unit_price DOUBLE PRECISION NOT NULL,
+  cost_price DOUBLE PRECISION NOT NULL DEFAULT 0,
   line_total DOUBLE PRECISION NOT NULL,
+  cost_total DOUBLE PRECISION NOT NULL DEFAULT 0,
   payment_method TEXT NOT NULL CHECK (payment_method IN ('cash', 'visa'))
 );
 

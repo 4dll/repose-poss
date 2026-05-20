@@ -109,24 +109,29 @@ export async function replaceOrderLines(
   await clientExecute(client, "DELETE FROM order_lines WHERE order_id = $1", [orderId]);
 
   for (const line of lines) {
-    const item = await clientQueryOne<{ name: string }>(
+    const item = await clientQueryOne<{ name: string; cost_price: number }>(
       client,
       "SELECT name FROM menu_items WHERE id = $1",
       [line.menuItemId]
     );
     if (!item) throw new Error(`Item ${line.menuItemId} not found`);
     const lineTotal = line.qty * line.unitPrice;
+    const costPrice = Number(item.cost_price) || 0;
+    const costTotal = line.qty * costPrice;
     await clientExecute(
       client,
-      `INSERT INTO order_lines (order_id, menu_item_id, item_name, qty, unit_price, line_total, payment_method)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+      `INSERT INTO order_lines (
+        order_id, menu_item_id, item_name, qty, unit_price, cost_price, line_total, cost_total, payment_method
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
       [
         orderId,
         line.menuItemId,
         item.name,
         line.qty,
         line.unitPrice,
+        costPrice,
         lineTotal,
+        costTotal,
         paymentMethod,
       ]
     );

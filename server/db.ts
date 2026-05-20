@@ -101,6 +101,8 @@ export async function initDb() {
     );
   }
 
+  await ensureSchemaUpdates();
+
   const staffCount = await queryOne<{ c: string }>("SELECT COUNT(*)::int AS c FROM staff");
   if (Number(staffCount?.c) === 0) {
     await execute(
@@ -111,6 +113,29 @@ export async function initDb() {
   const { ensureStaffCredentials } = await import("./auth.js");
   await ensureStaffCredentials();
   await ensureDefaultCategories();
+}
+
+async function columnExists(tableName: string, columnName: string): Promise<boolean> {
+  const row = await queryOne<{ exists: boolean }>(
+    `SELECT EXISTS (
+       SELECT FROM information_schema.columns
+       WHERE table_schema = 'public' AND table_name = $1 AND column_name = $2
+     ) AS exists`,
+    [tableName, columnName]
+  );
+  return Boolean(row?.exists);
+}
+
+async function ensureSchemaUpdates() {
+  if (!(await columnExists("menu_items", "cost_price"))) {
+    await execute("ALTER TABLE menu_items ADD COLUMN cost_price DOUBLE PRECISION NOT NULL DEFAULT 0");
+  }
+  if (!(await columnExists("order_lines", "cost_price"))) {
+    await execute("ALTER TABLE order_lines ADD COLUMN cost_price DOUBLE PRECISION NOT NULL DEFAULT 0");
+  }
+  if (!(await columnExists("order_lines", "cost_total"))) {
+    await execute("ALTER TABLE order_lines ADD COLUMN cost_total DOUBLE PRECISION NOT NULL DEFAULT 0");
+  }
 }
 
 async function ensureDefaultCategories() {
