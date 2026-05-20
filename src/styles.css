@@ -1069,9 +1069,44 @@ th {
     visibility: visible;
   }
 
+  body.daily-report-printing {
+    width: auto;
+  }
+
+  body.daily-report-printing * {
+    visibility: hidden;
+  }
+
+  body.daily-report-printing .report-print,
+  body.daily-report-printing .report-print * {
+    visibility: visible;
+  }
+
   .app {
     max-width: none;
     padding: 0;
+  }
+
+  body.daily-report-printing .app {
+    padding: 8mm;
+  }
+
+  body.daily-report-printing .report-print {
+    position: static;
+    width: 100%;
+    max-width: none;
+    padding: 0;
+    box-shadow: none;
+    border-radius: 0;
+  }
+
+  body.daily-report-printing .report-print h2 {
+    font-size: 20px;
+    margin-bottom: 8mm;
+  }
+
+  body.daily-report-printing table {
+    font-size: 11px;
   }
 
   .bill-overlay {

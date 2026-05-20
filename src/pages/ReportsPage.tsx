@@ -65,6 +65,18 @@ export default function ReportsPage() {
     }
   }
 
+  function printDailyReport() {
+    document.body.classList.add("daily-report-printing");
+    const removePrintClass = () => {
+      document.body.classList.remove("daily-report-printing");
+    };
+    window.addEventListener("afterprint", removePrintClass, { once: true });
+    window.setTimeout(() => {
+      window.print();
+      window.setTimeout(removePrintClass, 1000);
+    }, 100);
+  }
+
   return (
     <div>
       {error && <div className="alert alert-error">{error}</div>}
@@ -132,6 +144,11 @@ export default function ReportsPage() {
           <button type="button" className="btn-secondary" onClick={load} disabled={loading}>
             Refresh
           </button>
+          {tab === "daily" && periodReport && (
+            <button type="button" className="btn-primary" onClick={printDailyReport}>
+              Print daily report
+            </button>
+          )}
         </div>
       </div>
 

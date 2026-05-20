@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   api,
   CartLine,
@@ -51,18 +51,19 @@ export default function PosPage() {
   const [openOrderId, setOpenOrderId] = useState<number | null>(null);
   const [tables, setTables] = useState<TableStatus[]>([]);
   const [lastBill, setLastBill] = useState<Bill | null>(null);
-  const [pendingPrint, setPendingPrint] = useState(false);
+  const [pendingPrint, setPendingPrint] = useState(0);
+  const printedJobRef = useRef(0);
 
   useEffect(() => {
-    if (!pendingPrint || !lastBill) return;
+    if (!pendingPrint || !lastBill || printedJobRef.current === pendingPrint) return;
     document.body.classList.add("receipt-printing");
     const removePrintClass = () => {
       document.body.classList.remove("receipt-printing");
     };
     window.addEventListener("afterprint", removePrintClass, { once: true });
     const timer = window.setTimeout(() => {
+      printedJobRef.current = pendingPrint;
       window.print();
-      setPendingPrint(false);
       window.setTimeout(removePrintClass, 1000);
     }, 150);
     return () => {
@@ -100,7 +101,7 @@ export default function PosPage() {
 
   function showAndPrintBill(bill: Bill) {
     setLastBill(bill);
-    setPendingPrint(true);
+    setPendingPrint((job) => job + 1);
   }
 
   function draftBill(): Bill {
@@ -1042,7 +1043,7 @@ export default function PosPage() {
         <BillReceipt
           bill={lastBill}
           onPrint={() => {
-            setPendingPrint(true);
+            setPendingPrint((job) => job + 1);
           }}
           onClose={() => setLastBill(null)}
         />
