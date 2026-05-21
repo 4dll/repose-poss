@@ -52,8 +52,6 @@ export async function ensureStaffCredentials() {
   const allStaff = await query<StaffAuth>("SELECT id, name, username, password_hash FROM staff");
 
   const defaults: Record<number, { username: string; password: string }> = {
-    1: { username: "staff1", password: "staff1" },
-    2: { username: "staff2", password: "staff2" },
     3: { username: "kumar", password: "123" },
     4: { username: "admin", password: "1234" },
   };

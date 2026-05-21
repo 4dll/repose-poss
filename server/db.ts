@@ -106,7 +106,7 @@ export async function initDb() {
   const staffCount = await queryOne<{ c: string }>("SELECT COUNT(*)::int AS c FROM staff");
   if (Number(staffCount?.c) === 0) {
     await execute(
-      "INSERT INTO staff (id, name) VALUES (1, 'Staff 1'), (2, 'Staff 2') ON CONFLICT DO NOTHING"
+      "INSERT INTO staff (id, name) VALUES (3, 'Kumar'), (4, 'Admin') ON CONFLICT DO NOTHING"
     );
   }
 

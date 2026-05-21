@@ -15,6 +15,7 @@ export default function StockPage() {
   const [adjustReason, setAdjustReason] = useState<Record<number, string>>({});
   const [editCost, setEditCost] = useState<Record<number, string>>({});
   const [editPrice, setEditPrice] = useState<Record<number, string>>({});
+  const [savingItems, setSavingItems] = useState<Record<number, boolean>>({});
 
   async function load() {
     const [stock, cats] = await Promise.all([api.stock(), api.categories()]);
@@ -68,9 +69,19 @@ export default function StockPage() {
     if (!qty) return;
     setError("");
     try {
-      await api.adjustStock(id, qty, adjustReason[id]);
+      const updated = await api.adjustStock(id, qty, adjustReason[id]);
       setAdjustQty((p) => ({ ...p, [id]: "" }));
-      await load();
+      setItems((current) =>
+        current.map((item) =>
+          item.id === id
+            ? {
+                ...item,
+                stock_qty: updated.stock_qty,
+                is_low_stock: updated.stock_qty <= item.low_stock_threshold ? 1 : 0,
+              }
+            : item
+        )
+      );
     } catch (err) {
       setError((err as Error).message);
     }
@@ -78,14 +89,29 @@ export default function StockPage() {
 
   async function saveItem(id: number) {
     setError("");
+    setSavingItems((current) => ({ ...current, [id]: true }));
     try {
-      await api.updateMenuItem(id, {
+      const updated = await api.updateMenuItem(id, {
         price: parseFloat(editPrice[id]) || 0,
         costPrice: parseFloat(editCost[id]) || 0,
       });
-      await load();
+      setItems((current) =>
+        current.map((item) =>
+          item.id === id
+            ? {
+                ...item,
+                price: updated.price,
+                cost_price: updated.cost_price,
+              }
+            : item
+        )
+      );
+      setEditPrice((current) => ({ ...current, [id]: String(updated.price) }));
+      setEditCost((current) => ({ ...current, [id]: String(updated.cost_price ?? 0) }));
     } catch (err) {
       setError((err as Error).message);
+    } finally {
+      setSavingItems((current) => ({ ...current, [id]: false }));
     }
   }
 
@@ -94,7 +120,17 @@ export default function StockPage() {
     setError("");
     try {
       await api.deleteMenuItem(item.id);
-      await load();
+      setItems((current) => current.filter((currentItem) => currentItem.id !== item.id));
+      setEditCost((current) => {
+        const next = { ...current };
+        delete next[item.id];
+        return next;
+      });
+      setEditPrice((current) => {
+        const next = { ...current };
+        delete next[item.id];
+        return next;
+      });
     } catch (err) {
       setError((err as Error).message);
     }
@@ -277,8 +313,13 @@ export default function StockPage() {
                       </button>
                     </td>
                     <td>
-                      <button type="button" className="btn-secondary" onClick={() => saveItem(item.id)}>
-                        Save
+                      <button
+                        type="button"
+                        className="btn-secondary"
+                        disabled={savingItems[item.id]}
+                        onClick={() => saveItem(item.id)}
+                      >
+                        {savingItems[item.id] ? "Saved" : "Save"}
                       </button>
                       <button
                         type="button"
