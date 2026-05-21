@@ -43,12 +43,19 @@ export async function verifyStaffCredentials(
 }
 
 export async function ensureStaffCredentials() {
+  await execute(
+    `INSERT INTO staff (id, name)
+     VALUES (3, 'Kumar'), (4, 'Admin')
+     ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name`
+  );
+
   const allStaff = await query<StaffAuth>("SELECT id, name, username, password_hash FROM staff");
 
   const defaults: Record<number, { username: string; password: string }> = {
     1: { username: "staff1", password: "staff1" },
     2: { username: "staff2", password: "staff2" },
-    3: { username: "ghassan", password: "ghassan" },
+    3: { username: "kumar", password: "123" },
+    4: { username: "admin", password: "1234" },
   };
   for (const row of allStaff) {
     const def = defaults[row.id];
