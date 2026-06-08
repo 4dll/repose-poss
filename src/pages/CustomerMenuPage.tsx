@@ -46,6 +46,8 @@ export default function CustomerMenuPage() {
     selectedCategoryId == null
       ? grouped
       : grouped.filter((group) => group.category.id === selectedCategoryId);
+  const selectedCategory = categories.find((category) => category.id === selectedCategoryId);
+  const visibleItemCount = visibleGroups.reduce((count, group) => count + group.items.length, 0);
 
   return (
     <main className="customer-menu">
@@ -53,7 +55,7 @@ export default function CustomerMenuPage() {
         <img src="/repose-logo.png" alt="Repose Cafe" />
         <div>
           <p>Repose Cafe</p>
-          <h1>Menu</h1>
+          <h1>{selectedCategory?.name ?? "Menu"}</h1>
         </div>
       </header>
 
@@ -75,17 +77,24 @@ export default function CustomerMenuPage() {
       <section className="customer-menu-list">
         {visibleGroups.map(({ category, items }) => (
           <div key={category.id} className="customer-menu-section">
-            <h2>{category.name}</h2>
+            <div className="customer-menu-section-head">
+              <h2>{category.name}</h2>
+              <span>{items.length} items</span>
+            </div>
             <div className="customer-menu-items">
               {items.map((item) => (
                 <article key={item.id} className="customer-menu-item">
-                  {itemImage(item) && (
+                  {itemImage(item) ? (
                     <img
                       className="customer-menu-item-image"
                       src={itemImage(item)}
                       alt={item.name}
                       loading="lazy"
                     />
+                  ) : (
+                    <div className="customer-menu-item-fallback" aria-hidden="true">
+                      {item.name.slice(0, 1)}
+                    </div>
                   )}
                   <div className="customer-menu-item-row">
                     <div>
@@ -101,6 +110,9 @@ export default function CustomerMenuPage() {
             </div>
           </div>
         ))}
+        {!error && visibleItemCount === 0 && (
+          <p className="customer-menu-empty">No items are available in this category.</p>
+        )}
       </section>
     </main>
   );
