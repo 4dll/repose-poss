@@ -16,7 +16,6 @@ export default function CustomerMenuPage() {
   const [menu, setMenu] = useState<MenuItem[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
-  const [search, setSearch] = useState("");
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -38,56 +37,31 @@ export default function CustomerMenuPage() {
     () =>
       categories.map((category) => ({
         category,
-        items: menu.filter(
-          (item) =>
-            item.category_id === category.id &&
-            item.name.toLowerCase().includes(search.trim().toLowerCase())
-        ),
+        items: menu.filter((item) => item.category_id === category.id),
       })),
-    [categories, menu, search]
+    [categories, menu]
   );
 
   const visibleGroups =
     selectedCategoryId == null
       ? grouped
       : grouped.filter((group) => group.category.id === selectedCategoryId);
+  const selectedCategory = categories.find((category) => category.id === selectedCategoryId);
   const visibleItemCount = visibleGroups.reduce((count, group) => count + group.items.length, 0);
 
   return (
     <main className="customer-menu">
-      <header className="customer-menu-topbar">
-        <button type="button" aria-label="Table selector" className="customer-table-button">
-          <span aria-hidden="true">◴</span>
-          Table
-          <span aria-hidden="true">⌄</span>
-        </button>
-        <div className="customer-top-actions" aria-hidden="true">
-          <span>♙</span>
-          <span>☰</span>
+      <header className="customer-menu-hero">
+        <img src="/repose-logo.png" alt="Repose Cafe" />
+        <div>
+          <p>Repose Cafe</p>
+          <h1>{selectedCategory?.name ?? "Menu"}</h1>
         </div>
       </header>
 
       {error && <div className="alert alert-error">{error}</div>}
 
-      <section className="customer-venue">
-        <div>
-          <h1>REPOSE CAFE</h1>
-          <p>Coffee shop</p>
-        </div>
-        <div className="customer-hours">
-          <span aria-hidden="true">◷</span>
-          7:00 AM - 12:00 AM
-        </div>
-      </section>
-
       <nav className="customer-category-strip" aria-label="Menu categories">
-        <button
-          type="button"
-          className={selectedCategoryId === null ? "active" : ""}
-          onClick={() => setSelectedCategoryId(null)}
-        >
-          <span>All categories</span>
-        </button>
         {categories.map((category) => (
           <button
             key={category.id}
@@ -95,30 +69,18 @@ export default function CustomerMenuPage() {
             className={selectedCategoryId === category.id ? "active" : ""}
             onClick={() => setSelectedCategoryId(category.id)}
           >
-            <span>{category.name}</span>
+            {category.name}
           </button>
         ))}
       </nav>
 
-      <div className="customer-menu-tools">
-        <label>
-          <span className="sr-only">Search menu</span>
-          <input
-            type="search"
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            placeholder="Search..."
-          />
-        </label>
-        <div className="customer-view-icons" aria-hidden="true">
-          <span>☷</span>
-          <span>⠿</span>
-        </div>
-      </div>
-
       <section className="customer-menu-list">
         {visibleGroups.map(({ category, items }) => (
           <div key={category.id} className="customer-menu-section">
+            <div className="customer-menu-section-head">
+              <h2>{category.name}</h2>
+              <span>{items.length} items</span>
+            </div>
             <div className="customer-menu-items">
               {items.map((item) => (
                 <article key={item.id} className="customer-menu-item">

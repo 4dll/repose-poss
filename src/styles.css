@@ -964,119 +964,67 @@ th {
 
 .customer-app {
   min-height: 100vh;
-  background: #ffffff;
+  background: #f4f1ea;
 }
 
 .customer-menu {
-  max-width: 720px;
+  max-width: 980px;
   margin: 0 auto;
-  padding: 0 0 3rem;
-  background: #ffffff;
-  color: #000000;
+  padding: 0 0 3.5rem;
+  background:
+    linear-gradient(180deg, #0f5132 0, #0f5132 13.5rem, #f4f1ea 13.5rem, #f4f1ea 100%);
 }
 
-.sr-only {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
-  border: 0;
-}
-
-.customer-menu-topbar {
-  position: sticky;
-  top: 0;
-  z-index: 20;
+.customer-menu-hero {
   display: flex;
   align-items: center;
-  justify-content: center;
-  min-height: 5.35rem;
-  padding: 1rem 1.1rem;
-  background: #faf9fb;
-  border-bottom: 1px solid #dedede;
-}
-
-.customer-table-button {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.45rem;
-  background: transparent;
-  color: #000000;
-  padding: 0;
-  border-radius: 0;
-  font-size: 1.65rem;
-  line-height: 1;
-  font-weight: 900;
-}
-
-.customer-table-button span:first-child {
-  font-size: 2.05rem;
-  font-weight: 600;
-}
-
-.customer-top-actions {
-  position: absolute;
-  right: 1.15rem;
-  display: flex;
-  align-items: center;
-  gap: 1.1rem;
-  color: #222b31;
-  font-size: 2rem;
-  line-height: 1;
-}
-
-.customer-venue {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
   gap: 1rem;
-  padding: 1rem 1.6rem 0.85rem;
-  background: #ffffff;
+  padding: 1.5rem 1.5rem 1.1rem;
+  background: transparent;
+  color: white;
+  border-bottom: none;
 }
 
-.customer-venue h1 {
-  margin: 0;
-  color: #000000;
-  font-size: 1.32rem;
-  line-height: 1.1;
-  font-weight: 900;
-  letter-spacing: 0;
-}
-
-.customer-venue p {
-  margin: 0.25rem 0 0;
-  color: #000000;
-  font-size: 1rem;
-  line-height: 1.1;
-}
-
-.customer-hours {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.55rem;
+.customer-menu-hero img {
+  display: block;
+  width: 68px;
+  height: 68px;
   flex: 0 0 auto;
-  color: #000000;
-  font-size: 1rem;
-  font-weight: 500;
-  white-space: nowrap;
+  object-fit: contain;
+  border-radius: 8px;
+  background: #fffaf2;
+  padding: 0.35rem;
 }
 
-.customer-hours span {
-  font-size: 1.8rem;
+.customer-menu-hero p {
+  margin: 0 0 0.1rem;
+  color: rgba(255, 255, 255, 0.78);
+  font-size: 0.85rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.customer-menu-hero h1 {
+  display: block;
+  margin: 0;
+  color: #ffffff;
+  font-size: 2.15rem;
   line-height: 1;
+  font-weight: 900;
+  text-transform: capitalize;
 }
 
 .customer-category-strip {
+  position: sticky;
+  top: 0;
+  z-index: 10;
   display: flex;
-  gap: 1rem;
+  gap: 0.55rem;
   overflow-x: auto;
-  padding: 0.55rem 1rem 1.05rem;
-  background: #ffffff;
-  border-bottom: none;
+  padding: 0.85rem 1.5rem 1.2rem;
+  background: #0f5132;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
   scrollbar-width: none;
 }
 
@@ -1085,120 +1033,78 @@ th {
 }
 
 .customer-category-strip button {
-  position: relative;
   flex: 0 0 auto;
-  width: min(31vw, 210px);
-  min-width: 180px;
-  height: 92px;
-  overflow: hidden;
-  padding: 0.9rem 1rem;
-  border-radius: 8px;
-  background:
-    linear-gradient(180deg, rgba(0, 0, 0, 0.05), rgba(0, 0, 0, 0.72)),
-    url("/menu-images/chemex.jpg") center / cover;
-  color: #ffffff;
-  border: 2px solid transparent;
-  font-size: 1.25rem;
-  font-weight: 700;
-  text-align: left;
-  white-space: normal;
-}
-
-.customer-category-strip button:nth-child(2n) {
-  background:
-    linear-gradient(180deg, rgba(0, 0, 0, 0.04), rgba(0, 0, 0, 0.72)),
-    url("/menu-images/v60.jpg") center / cover;
-}
-
-.customer-category-strip button:nth-child(3n) {
-  background:
-    linear-gradient(180deg, rgba(0, 0, 0, 0.04), rgba(0, 0, 0, 0.72)),
-    url("/menu-images/turkish-coffee.jpg") center / cover;
-}
-
-.customer-category-strip button span {
-  position: absolute;
-  left: 1rem;
-  right: 1rem;
-  bottom: 0.8rem;
-  line-height: 1.08;
+  padding: 0.58rem 0.9rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.88);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  font-size: 0.95rem;
+  font-weight: 800;
+  white-space: nowrap;
 }
 
 .customer-category-strip button.active {
-  border-color: #ff6848;
-}
-
-.customer-menu-tools {
-  display: flex;
-  align-items: center;
-  gap: 0.9rem;
-  padding: 1.1rem 1rem 0.75rem;
-  background: #faf9fb;
-  border-bottom: 1px solid #d8d8d8;
-}
-
-.customer-menu-tools label {
-  flex: 1 1 auto;
-}
-
-.customer-menu-tools input {
-  width: 100%;
-  height: 3.85rem;
-  padding: 0 1rem;
-  border: 0;
-  border-radius: 14px;
-  background: #ffffff;
-  color: #000000;
-  font-size: 1.35rem;
-  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.08);
-}
-
-.customer-menu-tools input::placeholder {
-  color: #b0b0b4;
-}
-
-.customer-view-icons {
-  flex: 0 0 auto;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.8rem;
-  color: #ff6848;
-  font-size: 2rem;
-  line-height: 1;
+  background: #f5f0e7;
+  color: #0f5132;
+  border-color: #f5f0e7;
 }
 
 .customer-menu-list {
-  padding: 0;
+  padding: 1.25rem 1.5rem;
 }
 
 .customer-menu-section + .customer-menu-section {
-  margin-top: 0;
+  margin-top: 2rem;
+}
+
+.customer-menu-section-head {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 1rem;
+  margin: 0 0 0.9rem;
+}
+
+.customer-menu-section h2 {
+  margin: 0;
+  color: #1f2d24;
+  font-size: 1.35rem;
+  line-height: 1.1;
+  font-weight: 900;
+  text-transform: capitalize;
+}
+
+.customer-menu-section-head span {
+  flex: 0 0 auto;
+  color: #7a7369;
+  font-size: 0.85rem;
+  font-weight: 800;
 }
 
 .customer-menu-items {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 0.9rem;
 }
 
 .customer-menu-item {
   display: grid;
-  grid-template-columns: 148px minmax(0, 1fr);
-  column-gap: 1.85rem;
-  min-height: 150px;
-  padding: 1.25rem 1.35rem;
-  background: #ffffff;
-  border: 0;
-  border-radius: 0;
-  box-shadow: none;
+  grid-template-columns: 112px minmax(0, 1fr);
+  min-height: 112px;
+  overflow: hidden;
+  background: #fffdf8;
+  border: 1px solid #e7dfd1;
+  border-radius: 8px;
+  box-shadow: 0 8px 22px rgba(32, 24, 15, 0.06);
 }
 
 .customer-menu-item-image,
 .customer-menu-item-fallback {
   display: block;
   width: 100%;
-  height: 148px;
-  min-height: 0;
-  border-radius: 10px;
+  height: 100%;
+  min-height: 112px;
 }
 
 .customer-menu-item-image {
@@ -1209,8 +1115,8 @@ th {
   display: grid;
   place-items: center;
   background: linear-gradient(135deg, #e8d8bd, #f7f0e2);
-  color: #ff6848;
-  font-size: 2.15rem;
+  color: #a45118;
+  font-size: 2rem;
   font-weight: 900;
   text-transform: uppercase;
 }
@@ -1219,28 +1125,28 @@ th {
   display: flex;
   min-width: 0;
   height: 100%;
-  flex-direction: column;
-  align-items: flex-start;
-  justify-content: center;
-  gap: 0.65rem;
-  padding: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.9rem;
+  padding: 0.95rem 1rem;
 }
 
 .customer-menu-item h3 {
   margin: 0;
-  color: #000000;
-  font-size: 1.75rem;
-  line-height: 1.1;
-  font-weight: 500;
+  color: #28352d;
+  font-size: 1.15rem;
+  line-height: 1.15;
+  font-weight: 900;
   letter-spacing: 0;
   overflow-wrap: anywhere;
 }
 
 .customer-menu-item strong {
-  color: #ff6848;
-  font-size: 1.45rem;
+  flex: 0 0 auto;
+  color: #0f5132;
+  font-size: 1.15rem;
   line-height: 1;
-  font-weight: 800;
+  font-weight: 900;
   white-space: nowrap;
 }
 
@@ -1253,86 +1159,85 @@ th {
 }
 
 .customer-menu-empty {
-  margin: 1rem;
+  margin: 1rem 0 0;
   padding: 1rem;
-  color: #88888e;
-  background: #faf9fb;
-  border-radius: 12px;
+  color: #7a7369;
+  background: #fffdf8;
+  border: 1px solid #e7dfd1;
+  border-radius: 8px;
   font-weight: 700;
 }
 
 @media (max-width: 640px) {
-  .customer-menu-topbar {
-    min-height: 5.25rem;
+  .customer-menu {
+    background:
+      linear-gradient(180deg, #0f5132 0, #0f5132 10.5rem, #f4f1ea 10.5rem, #f4f1ea 100%);
   }
 
-  .customer-table-button {
-    font-size: 1.5rem;
+  .customer-menu-hero {
+    padding: 1rem 1rem 0.7rem;
   }
 
-  .customer-top-actions {
-    right: 0.85rem;
-    gap: 0.8rem;
-    font-size: 1.75rem;
+  .customer-menu-hero img {
+    width: 54px;
+    height: 54px;
   }
 
-  .customer-venue {
-    padding: 0.9rem 1.1rem 0.75rem;
+  .customer-menu-hero p {
+    font-size: 0.72rem;
+    margin-bottom: 0.12rem;
   }
 
-  .customer-venue h1 {
-    font-size: 1.18rem;
-  }
-
-  .customer-venue p,
-  .customer-hours {
-    font-size: 0.88rem;
+  .customer-menu-hero h1 {
+    font-size: 1.55rem;
   }
 
   .customer-category-strip {
-    gap: 0.8rem;
-    padding: 0.55rem 0.8rem 1rem;
+    gap: 0.45rem;
+    padding: 0.7rem 1rem 0.95rem;
   }
 
   .customer-category-strip button {
-    width: 31vw;
-    min-width: 150px;
-    height: 96px;
-    font-size: 1.05rem;
+    font-size: 0.88rem;
+    padding: 0.52rem 0.78rem;
   }
 
-  .customer-menu-tools {
-    padding: 0.9rem 0.8rem 0.65rem;
+  .customer-menu-list {
+    padding: 1rem;
   }
 
-  .customer-menu-tools input {
-    height: 3.3rem;
-    font-size: 1.25rem;
+  .customer-menu-section-head {
+    margin-bottom: 0.8rem;
   }
 
-  .customer-view-icons {
-    gap: 0.6rem;
-    font-size: 1.75rem;
+  .customer-menu-section h2 {
+    font-size: 1.2rem;
+  }
+
+  .customer-menu-items {
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
   }
 
   .customer-menu-item {
-    grid-template-columns: 112px minmax(0, 1fr);
-    column-gap: 1.45rem;
-    min-height: 132px;
-    padding: 1.05rem 0.95rem;
+    grid-template-columns: 86px minmax(0, 1fr);
+    min-height: 96px;
   }
 
   .customer-menu-item-image,
   .customer-menu-item-fallback {
-    height: 112px;
+    min-height: 96px;
   }
 
-  .customer-menu-item h3 {
-    font-size: 1.42rem;
+  .customer-menu-item-row {
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.8rem 0.85rem;
   }
 
+  .customer-menu-item h3,
   .customer-menu-item strong {
-    font-size: 1.2rem;
+    font-size: 1rem;
   }
 }
 
