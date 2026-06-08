@@ -310,6 +310,20 @@ export async function createApp() {
     }
   });
 
+  app.get("/api/menu/customer", async (_req, res) => {
+    try {
+      res.json(
+        await query(
+          `${menuSelect}
+           WHERE m.active = TRUE AND m.show_on_customer_menu = TRUE
+           ORDER BY c.sort_order, m.name`
+        )
+      );
+    } catch (e) {
+      res.status(500).json({ error: (e as Error).message });
+    }
+  });
+
   app.get("/api/menu/all", async (_req, res) => {
     try {
       res.json(await query(`${menuSelect} ORDER BY c.sort_order, m.name`));
@@ -320,7 +334,15 @@ export async function createApp() {
 
   app.post("/api/menu", async (req, res) => {
     try {
-      const { name, price, costPrice, stockQty, lowStockThreshold, categoryId } = req.body;
+      const {
+        name,
+        price,
+        costPrice,
+        stockQty,
+        lowStockThreshold,
+        categoryId,
+        showOnCustomerMenu,
+      } = req.body;
       if (!name || price == null) return res.status(400).json({ error: "Name and price required" });
       if (!categoryId) return res.status(400).json({ error: "Category required" });
 
@@ -328,9 +350,18 @@ export async function createApp() {
       if (!cat) return res.status(400).json({ error: "Invalid category" });
 
       const row = await queryOne(
-        `INSERT INTO menu_items (name, price, cost_price, stock_qty, low_stock_threshold, category_id)
-         VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
-        [name, price, costPrice ?? 0, stockQty ?? 0, lowStockThreshold ?? 5, categoryId]
+        `INSERT INTO menu_items
+          (name, price, cost_price, stock_qty, low_stock_threshold, category_id, show_on_customer_menu)
+         VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`,
+        [
+          name,
+          price,
+          costPrice ?? 0,
+          stockQty ?? 0,
+          lowStockThreshold ?? 5,
+          categoryId,
+          showOnCustomerMenu ?? true,
+        ]
       );
       res.json(await queryOne(`${menuSelect} WHERE m.id = $1`, [(row as { id: number }).id]));
     } catch (e) {
@@ -341,7 +372,15 @@ export async function createApp() {
   app.patch("/api/menu/:id", async (req, res) => {
     try {
       const id = Number(req.params.id);
-      const { name, price, costPrice, stockQty, lowStockThreshold, active } = req.body;
+      const {
+        name,
+        price,
+        costPrice,
+        stockQty,
+        lowStockThreshold,
+        active,
+        showOnCustomerMenu,
+      } = req.body;
       const item = await queryOne("SELECT * FROM menu_items WHERE id = $1", [id]);
       if (!item) return res.status(404).json({ error: "Not found" });
 
@@ -353,8 +392,9 @@ export async function createApp() {
           stock_qty = COALESCE($4, stock_qty),
           low_stock_threshold = COALESCE($5, low_stock_threshold),
           active = COALESCE($6, active),
-          category_id = COALESCE($7, category_id)
-         WHERE id = $8`,
+          category_id = COALESCE($7, category_id),
+          show_on_customer_menu = COALESCE($8, show_on_customer_menu)
+         WHERE id = $9`,
         [
           name ?? null,
           price ?? null,
@@ -363,6 +403,7 @@ export async function createApp() {
           lowStockThreshold ?? null,
           active ?? null,
           req.body.categoryId ?? null,
+          showOnCustomerMenu ?? null,
           id,
         ]
       );

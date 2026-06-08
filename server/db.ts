@@ -106,7 +106,7 @@ export async function initDb() {
   const staffCount = await queryOne<{ c: string }>("SELECT COUNT(*)::int AS c FROM staff");
   if (Number(staffCount?.c) === 0) {
     await execute(
-      "INSERT INTO staff (id, name) VALUES (3, 'Kumar'), (4, 'Admin') ON CONFLICT DO NOTHING"
+      "INSERT INTO staff (id, name) VALUES (3, 'Kumar'), (4, 'Admin'), (5, 'Aljulanda'), (6, 'Ghassan') ON CONFLICT DO NOTHING"
     );
   }
 
@@ -129,6 +129,11 @@ async function columnExists(tableName: string, columnName: string): Promise<bool
 async function ensureSchemaUpdates() {
   if (!(await columnExists("menu_items", "cost_price"))) {
     await execute("ALTER TABLE menu_items ADD COLUMN cost_price DOUBLE PRECISION NOT NULL DEFAULT 0");
+  }
+  if (!(await columnExists("menu_items", "show_on_customer_menu"))) {
+    await execute(
+      "ALTER TABLE menu_items ADD COLUMN show_on_customer_menu BOOLEAN NOT NULL DEFAULT TRUE"
+    );
   }
   if (!(await columnExists("order_lines", "cost_price"))) {
     await execute("ALTER TABLE order_lines ADD COLUMN cost_price DOUBLE PRECISION NOT NULL DEFAULT 0");

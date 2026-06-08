@@ -11,6 +11,7 @@ export default function StockPage() {
   const [newStock, setNewStock] = useState("0");
   const [newCategoryId, setNewCategoryId] = useState("");
   const [newCategoryName, setNewCategoryName] = useState("");
+  const [newShowOnCustomerMenu, setNewShowOnCustomerMenu] = useState(true);
   const [adjustQty, setAdjustQty] = useState<Record<number, string>>({});
   const [adjustReason, setAdjustReason] = useState<Record<number, string>>({});
   const [editCost, setEditCost] = useState<Record<number, string>>({});
@@ -53,11 +54,13 @@ export default function StockPage() {
         costPrice: parseFloat(newCost) || 0,
         stockQty: parseInt(newStock, 10) || 0,
         categoryId: parseInt(newCategoryId, 10),
+        showOnCustomerMenu: newShowOnCustomerMenu,
       });
       setNewName("");
       setNewCost("");
       setNewPrice("");
       setNewStock("0");
+      setNewShowOnCustomerMenu(true);
       await load();
     } catch (err) {
       setError((err as Error).message);
@@ -112,6 +115,30 @@ export default function StockPage() {
       setError((err as Error).message);
     } finally {
       setSavingItems((current) => ({ ...current, [id]: false }));
+    }
+  }
+
+  async function toggleCustomerMenu(item: MenuItem) {
+    setError("");
+    setSavingItems((current) => ({ ...current, [item.id]: true }));
+    try {
+      const updated = await api.updateMenuItem(item.id, {
+        showOnCustomerMenu: !item.show_on_customer_menu,
+      });
+      setItems((current) =>
+        current.map((currentItem) =>
+          currentItem.id === item.id
+            ? {
+                ...currentItem,
+                show_on_customer_menu: updated.show_on_customer_menu,
+              }
+            : currentItem
+        )
+      );
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setSavingItems((current) => ({ ...current, [item.id]: false }));
     }
   }
 
@@ -223,6 +250,14 @@ export default function StockPage() {
               onChange={(e) => setNewStock(e.target.value)}
             />
           </label>
+          <label className="checkbox-label">
+            <input
+              type="checkbox"
+              checked={newShowOnCustomerMenu}
+              onChange={(e) => setNewShowOnCustomerMenu(e.target.checked)}
+            />
+            Show on customer menu
+          </label>
           <button type="submit" className="btn-primary" disabled={!newCategoryId}>
             Add item
           </button>
@@ -242,6 +277,7 @@ export default function StockPage() {
                   <th>Category</th>
                   <th>Cost</th>
                   <th>Sale price</th>
+                  <th>Customer menu</th>
                   <th>In stock</th>
                   <th>Adjust (+/−)</th>
                   <th></th>
@@ -282,7 +318,18 @@ export default function StockPage() {
                         onChange={(e) =>
                           setEditPrice((p) => ({ ...p, [item.id]: e.target.value }))
                         }
-                      />
+                        />
+                      </td>
+                    <td>
+                      <label className="checkbox-label table-checkbox-label">
+                        <input
+                          type="checkbox"
+                          checked={Boolean(item.show_on_customer_menu)}
+                          disabled={savingItems[item.id]}
+                          onChange={() => toggleCustomerMenu(item)}
+                        />
+                        {item.show_on_customer_menu ? "Shown" : "Hidden"}
+                      </label>
                     </td>
                     <td>
                       <strong>{item.stock_qty}</strong>

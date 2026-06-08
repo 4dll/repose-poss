@@ -32,8 +32,8 @@ Open **http://localhost:5173**.
 
 | Employee | Username | Password |
 |----------|----------|----------|
-| Staff 1  | `staff1` | `staff1` |
-| Staff 2  | `staff2` | `staff2` |
+| Aljulanda | `aljulanda` | `123` |
+| Ghassan | `ghassan` | `123` |
 
 ## Deploy to Vercel + Supabase
 
@@ -77,7 +77,7 @@ Open the same Vercel URL on each device — no local server required.
 
 ## Daily workflow
 
-1. **Open shift** — Login (Staff 1 or 2).
+1. **Open shift** — Login with a staff account.
 2. **Order type** — Dine in (pick table 1–5) or Takeaway.
 3. **Add items** — Category → items.
 4. **Pay** — Cash, Visa, or Split.

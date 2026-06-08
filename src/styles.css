@@ -606,6 +606,29 @@ th {
   color: var(--muted);
 }
 
+.form-row .checkbox-label,
+.checkbox-label {
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.45rem;
+  min-height: 2.65rem;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.checkbox-label input {
+  width: 1rem;
+  height: 1rem;
+  accent-color: var(--accent);
+}
+
+.table-checkbox-label {
+  min-height: auto;
+  white-space: nowrap;
+}
+
 .alert {
   padding: 1rem;
   border-radius: var(--radius);
@@ -985,6 +1008,11 @@ th {
   padding: 1rem 1.25rem;
   background: #087d3b;
   border-bottom: none;
+  scrollbar-width: none;
+}
+
+.customer-category-strip::-webkit-scrollbar {
+  display: none;
 }
 
 .customer-category-strip button {
@@ -1056,6 +1084,7 @@ th {
   line-height: 1.1;
   font-weight: 900;
   letter-spacing: 0;
+  overflow-wrap: anywhere;
 }
 
 .customer-menu-item strong {
@@ -1076,35 +1105,59 @@ th {
 
 @media (max-width: 640px) {
   .customer-menu-hero {
-    padding: 1.5rem 1rem 1rem;
+    padding: 1rem 1rem 0.65rem;
   }
 
   .customer-menu-hero p {
-    font-size: 1.8rem;
+    font-size: 1.5rem;
+    margin-bottom: 0.35rem;
   }
 
   .customer-category-strip {
-    gap: 0.6rem;
-    padding: 0.85rem;
+    gap: 0.5rem;
+    padding: 0.75rem 1rem 0.85rem;
   }
 
   .customer-category-strip button {
-    border-radius: 16px;
-    font-size: 1.15rem;
-    padding: 0.65rem 0.9rem;
+    border-radius: 14px;
+    font-size: 1rem;
+    padding: 0.6rem 0.85rem;
   }
 
   .customer-menu-list {
-    padding: 0.85rem;
+    padding: 1rem;
   }
 
   .customer-menu-items {
-    gap: 1rem 0.55rem;
+    grid-template-columns: 1fr;
+    gap: 1.1rem;
+  }
+
+  .customer-menu-item {
+    overflow: hidden;
+    background: #ffffff;
+    border-radius: 8px;
+    box-shadow: 0 1px 5px rgba(0, 0, 0, 0.08);
+  }
+
+  .customer-menu-item-image {
+    border-radius: 0;
+    aspect-ratio: 1.7;
+  }
+
+  .customer-menu-item-row {
+    align-items: center;
+    gap: 1rem;
+    padding: 0.85rem 1rem 1rem;
   }
 
   .customer-menu-item h3,
   .customer-menu-item strong {
-    font-size: 1.05rem;
+    font-size: 1.2rem;
+  }
+
+  .customer-menu-item strong {
+    flex: 0 0 auto;
   }
 }
 

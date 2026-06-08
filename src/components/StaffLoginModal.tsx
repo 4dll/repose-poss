@@ -74,7 +74,7 @@ export default function StaffLoginModal({
                 onChange={(e) => setUsername(e.target.value)}
                 readOnly={usernameReadonly}
                 required
-                placeholder="e.g. staff1"
+                placeholder="e.g. ghassan"
                 style={usernameReadonly ? { background: "var(--bg)" } : undefined}
               />
             </label>

@@ -21,6 +21,7 @@ CREATE TABLE IF NOT EXISTS menu_items (
   stock_qty INTEGER NOT NULL DEFAULT 0,
   low_stock_threshold INTEGER NOT NULL DEFAULT 5,
   active BOOLEAN NOT NULL DEFAULT TRUE,
+  show_on_customer_menu BOOLEAN NOT NULL DEFAULT TRUE,
   category_id INTEGER REFERENCES categories(id),
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );

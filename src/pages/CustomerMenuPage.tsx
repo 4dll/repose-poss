@@ -21,7 +21,7 @@ export default function CustomerMenuPage() {
   useEffect(() => {
     async function load() {
       try {
-        const [items, cats] = await Promise.all([api.menu(), api.categories()]);
+        const [items, cats] = await Promise.all([api.customerMenu(), api.categories()]);
         const visibleCats = cats.filter((cat) => items.some((item) => item.category_id === cat.id));
         setMenu(items);
         setCategories(visibleCats);

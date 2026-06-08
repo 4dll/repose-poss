@@ -39,6 +39,7 @@ export type MenuItem = {
   stock_qty: number;
   low_stock_threshold: number;
   active: number;
+  show_on_customer_menu: boolean;
   category_id: number | null;
   category_name?: string;
   is_low_stock?: number;
@@ -108,6 +109,7 @@ export const api = {
   addCategory: (name: string) =>
     request<Category>("/categories", { method: "POST", body: JSON.stringify({ name }) }),
   menu: () => request<MenuItem[]>("/menu"),
+  customerMenu: () => request<MenuItem[]>("/menu/customer"),
   menuAll: () => request<MenuItem[]>("/menu/all"),
   activeShifts: () => request<Shift[]>("/shifts/active"),
   openShift: (username: string, password: string) =>
@@ -178,10 +180,16 @@ export const api = {
     costPrice?: number;
     stockQty?: number;
     categoryId: number;
+    showOnCustomerMenu?: boolean;
   }) => request<MenuItem>("/menu", { method: "POST", body: JSON.stringify(body) }),
   updateMenuItem: (
     id: number,
-    body: Partial<MenuItem> & { costPrice?: number; stockQty?: number; categoryId?: number }
+    body: Partial<MenuItem> & {
+      costPrice?: number;
+      stockQty?: number;
+      categoryId?: number;
+      showOnCustomerMenu?: boolean;
+    }
   ) =>
     request<MenuItem>(`/menu/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
   deleteMenuItem: (id: number) => request<{ ok: boolean }>(`/menu/${id}`, { method: "DELETE" }),

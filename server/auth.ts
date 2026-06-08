@@ -45,8 +45,19 @@ export async function verifyStaffCredentials(
 export async function ensureStaffCredentials() {
   await execute(
     `INSERT INTO staff (id, name)
-     VALUES (3, 'Kumar'), (4, 'Admin')
+     VALUES (3, 'Kumar'), (4, 'Admin'), (5, 'Aljulanda'), (6, 'Ghassan')
      ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name`
+  );
+
+  await execute(
+    `DELETE FROM staff
+     WHERE (lower(username) = 'staff1' OR lower(name) = 'staff 1')
+       AND NOT EXISTS (SELECT 1 FROM shifts WHERE shifts.staff_id = staff.id)`
+  );
+  await execute(
+    `UPDATE staff
+     SET username = NULL, password_hash = NULL
+     WHERE lower(username) = 'staff1' OR lower(name) = 'staff 1'`
   );
 
   const allStaff = await query<StaffAuth>("SELECT id, name, username, password_hash FROM staff");
@@ -54,6 +65,8 @@ export async function ensureStaffCredentials() {
   const defaults: Record<number, { username: string; password: string }> = {
     3: { username: "kumar", password: "123" },
     4: { username: "admin", password: "1234" },
+    5: { username: "aljulanda", password: "123" },
+    6: { username: "ghassan", password: "123" },
   };
   for (const row of allStaff) {
     const def = defaults[row.id];
