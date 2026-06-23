@@ -42,7 +42,11 @@ const seedMenu: [string, string, number][] = [
 function freshStore(): Store {
   const categories = seedCategories.map((name, i) => ({ id: i + 1, name, sort_order: i + 1 }));
   return {
-    staff: [{ id: 1, name: "Aljulanda", username: "aljulanda", password: "123" }, { id: 2, name: "Ghassan", username: "ghassan", password: "123" }],
+    staff: [
+      { id: 1, name: "Aljulanda", username: "aljulanda", password: "123" },
+      { id: 2, name: "Ghassan", username: "ghassan", password: "123" },
+      { id: 3, name: "Kumar", username: "kumar", password: "132" },
+    ],
     categories,
     menu: seedMenu.map(([category, name, price], i) => ({ id: i + 1, name, price, cost_price: 0, stock_qty: 100, low_stock_threshold: 5, active: 1, show_on_customer_menu: true, category_id: categories.find((c) => c.name === category)!.id })),
     shifts: [], orders: [], lines: [], next: { category: categories.length + 1, menu: seedMenu.length + 1, shift: 1, order: 1, line: 1 },
@@ -52,7 +56,14 @@ function freshStore(): Store {
 function store(): Store {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) return JSON.parse(raw) as Store;
+    if (raw) {
+      const data = JSON.parse(raw) as Store;
+      if (!data.staff.some((staff) => staff.username === "kumar")) {
+        data.staff.push({ id: 3, name: "Kumar", username: "kumar", password: "132" });
+        save(data);
+      }
+      return data;
+    }
   } catch { /* reset an unreadable local cache */ }
   const data = freshStore(); save(data); return data;
 }

@@ -17,6 +17,7 @@ Open http://localhost:5173. The standard menu is added automatically the first t
 |---|---|---|
 | Aljulanda | `aljulanda` | `123` |
 | Ghassan | `ghassan` | `123` |
+| Kumar | `kumar` | `132` |
 
 ## Important storage behavior
 
