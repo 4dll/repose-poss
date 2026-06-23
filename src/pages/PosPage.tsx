@@ -413,6 +413,38 @@ export default function PosPage() {
     }
   }
 
+  async function moveTable() {
+    if (!openOrderId || selectedTable == null) return;
+    const answer = window.prompt("Move this order to which free table? (1–5)", String(selectedTable));
+    if (answer === null) return;
+    const targetTable = Number(answer);
+    if (!Number.isInteger(targetTable) || targetTable < 1 || targetTable > 5) {
+      setError("Enter a table number from 1 to 5");
+      return;
+    }
+    if (targetTable === selectedTable) return;
+
+    setLoading(true);
+    setError("");
+    try {
+      // Save the cart first so a move never loses any unsaved changes.
+      await api.updateOrder(openOrderId, {
+        lines: linesPayload(),
+        discountType: discountType || undefined,
+        discountValue: dVal || undefined,
+      });
+      await api.moveTable(openOrderId, targetTable);
+      setSelectedTable(targetTable);
+      setSuccess(`Order moved from Table ${selectedTable} to Table ${targetTable}`);
+      setTimeout(() => setSuccess(""), 2500);
+      await load();
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
   async function payTableOrder() {
     if (!openOrderId || cart.length === 0) {
       setError("Add items before payment");
@@ -967,6 +999,15 @@ export default function PosPage() {
                       onClick={saveTableOrder}
                     >
                       {loading ? "Saving…" : "Save to table"}
+                    </button>
+                    <button
+                      type="button"
+                      className="btn-secondary"
+                      style={{ width: "100%" }}
+                      disabled={loading || !openOrderId}
+                      onClick={moveTable}
+                    >
+                      Move to another table
                     </button>
                     <button
                       type="button"
