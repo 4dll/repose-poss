@@ -13,23 +13,23 @@ export default function App() {
   const location = useLocation();
   const isCustomerMenu = location.pathname === "/menu";
   const [admin, setAdmin] = useState<Staff | null>(() => {
-    const stored = sessionStorage.getItem(ADMIN_SESSION_KEY);
+    const stored = localStorage.getItem(ADMIN_SESSION_KEY);
     if (!stored) return null;
     try {
       return JSON.parse(stored) as Staff;
     } catch {
-      sessionStorage.removeItem(ADMIN_SESSION_KEY);
+      localStorage.removeItem(ADMIN_SESSION_KEY);
       return null;
     }
   });
 
   function handleAdminLogin(staff: Staff) {
-    sessionStorage.setItem(ADMIN_SESSION_KEY, JSON.stringify(staff));
+    localStorage.setItem(ADMIN_SESSION_KEY, JSON.stringify(staff));
     setAdmin(staff);
   }
 
   function handleAdminLogout() {
-    sessionStorage.removeItem(ADMIN_SESSION_KEY);
+    localStorage.removeItem(ADMIN_SESSION_KEY);
     setAdmin(null);
   }
 
