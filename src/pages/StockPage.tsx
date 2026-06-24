@@ -143,7 +143,7 @@ export default function StockPage() {
   }
 
   async function deleteItem(item: MenuItem) {
-    if (!confirm(`Delete ${item.name}? It will be removed from POS and customer menu.`)) return;
+    if (!confirm(`Remove ${item.name} from the POS and customer menu? Past sales records will be kept.`)) return;
     setError("");
     try {
       await api.deleteMenuItem(item.id);

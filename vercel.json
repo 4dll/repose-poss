@@ -1,5 +1,14 @@
 {
   "buildCommand": "npm run build",
   "outputDirectory": "dist/client",
-  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
+  "rewrites": [
+    {
+      "source": "/api/(.*)",
+      "destination": "/api/server?__vp=$1"
+    },
+    { "source": "/(.*)", "destination": "/index.html" }
+  ],
+  "functions": {
+    "api/server.ts": { "maxDuration": 30 }
+  }
 }
