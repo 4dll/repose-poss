@@ -1,137 +1,265 @@
-/** Browser-local POS store. Data is intentionally scoped to this browser profile. */
-const STORAGE_KEY = "repose-pos-local-data-v1";
+const BASE = "/api";
+
+async function request<T>(url: string, options?: RequestInit): Promise<T> {
+  const res = await fetch(`${BASE}${url}`, {
+    headers: { "Content-Type": "application/json" },
+    ...options,
+  });
+  const text = await res.text();
+  let data: { error?: string } = {};
+  if (text) {
+    try {
+      data = JSON.parse(text) as { error?: string };
+    } catch {
+      data = { error: text.slice(0, 200) };
+    }
+  }
+  if (!res.ok) {
+    const msg =
+      data.error ||
+      res.statusText ||
+      (res.status ? `Request failed (${res.status})` : "Request failed — is the API server running?");
+    throw new Error(msg);
+  }
+  return (text ? JSON.parse(text) : {}) as T;
+}
 
 export type Staff = { id: number; name: string; username: string };
-export type Category = { id: number; name: string; sort_order: number };
+export type Category = {
+  id: number;
+  name: string;
+  sort_order: number;
+};
+
 export type MenuItem = {
-  id: number; name: string; price: number; cost_price: number; stock_qty: number;
-  low_stock_threshold: number; active: number; show_on_customer_menu: boolean;
-  category_id: number | null; category_name?: string; is_low_stock?: number;
+  id: number;
+  name: string;
+  price: number;
+  cost_price: number;
+  stock_qty: number;
+  low_stock_threshold: number;
+  active: number;
+  show_on_customer_menu: boolean;
+  category_id: number | null;
+  category_name?: string;
+  is_low_stock?: number;
 };
-export type Shift = { id: number; staff_id: number; staff_name: string; staff_username?: string; started_at: string; ended_at: string | null };
-export type CartLine = { menuItemId: number; name: string; qty: number; unitPrice: number };
-export type TableStatus = { number: number; status: "free" | "occupied"; orderId?: number; total?: number; itemCount?: number; since?: string };
+export type Shift = {
+  id: number;
+  staff_id: number;
+  staff_name: string;
+  staff_username?: string;
+  started_at: string;
+  ended_at: string | null;
+};
+export type CartLine = {
+  menuItemId: number;
+  name: string;
+  qty: number;
+  unitPrice: number;
+};
+
+export type TableStatus = {
+  number: number;
+  status: "free" | "occupied";
+  orderId?: number;
+  total?: number;
+  itemCount?: number;
+  since?: string;
+};
+
 export type Order = {
-  id: number; shift_id: number; created_at: string; updated_at: string | null; service_type: string;
-  table_number: number | null; status: string; payment_method: string | null; subtotal: number;
-  discount_amount: number; total: number; cash_amount: number; visa_amount: number;
-  discount_type: string | null; discount_value: number;
+  id: number;
+  shift_id: number;
+  created_at: string;
+  updated_at: string | null;
+  service_type: string;
+  table_number: number | null;
+  status: string;
+  payment_method: string | null;
+  subtotal: number;
+  discount_amount: number;
+  total: number;
+  cash_amount: number;
+  visa_amount: number;
+  discount_type: string | null;
+  discount_value: number;
 };
-export type OrderLine = { id: number; menu_item_id: number; item_name: string; qty: number; unit_price: number; cost_price: number; line_total: number; cost_total: number; payment_method: string };
-export type ShiftReport = { shift: Shift; lines: (OrderLine & { order_time: string })[]; summary: ReportSummary };
-export type PeriodReport = { from: string; to: string; summary: ReportSummary; byDay: { day: string; revenue: number; cost: number; profit: number; items: number }[] };
-export type ItemsReport = { from: string; to: string; groupBy: string; totals: ItemTotals[]; items: (ItemTotals & { period: string })[] };
-type ReportSummary = { cash_total: number; visa_total: number; items_sold: number; order_count: number; grand_total: number; cost_total: number; profit_total: number; discount_total: number };
-type ItemTotals = { item_name: string; qty_sold: number; revenue: number; cost: number; profit: number };
-type StoredStaff = Staff & { password: string };
-type Store = { staff: StoredStaff[]; categories: Category[]; menu: MenuItem[]; shifts: Shift[]; orders: Order[]; lines: (OrderLine & { order_id: number })[]; next: Record<string, number> };
 
-const seedCategories = ["Drip coffee", "Hot coffee", "iced coffee", "mojito", "milkshake", "juice", "sweets", "iced tea", "Hot tea", "frappuccino"];
-const seedMenu: [string, string, number][] = [
-  ["Drip coffee", "V60", 1.8], ["Drip coffee", "Chemex", 2], ["Drip coffee", "Turkish coffee", 1],
-  ["Hot coffee", "Espresso", 1], ["Hot coffee", "Americano", 1], ["Hot coffee", "latte", 1.2], ["Hot coffee", "Cappuccino", 1.2], ["Hot coffee", "Flat white", 1.2], ["Hot coffee", "cortado", 1.2], ["Hot coffee", "spanish latte", 1.2], ["Hot coffee", "pistachio latte", 1.4], ["Hot coffee", "white mocha", 1.4], ["Hot coffee", "hot chocolate", 1.2], ["Hot coffee", "caramel latte", 1.3], ["Hot coffee", "Dark moka", 1.4],
-  ["iced coffee", "americano", 1.2], ["iced coffee", "Cappuccino", 1.3], ["iced coffee", "latte", 1.3], ["iced coffee", "spanish latte", 1.4], ["iced coffee", "pistachio latte", 1.6], ["iced coffee", "white mocha", 1.5],
-  ["mojito", "Strawberry", 1.2], ["mojito", "Blueberry", 1.2], ["mojito", "peach", 1.2], ["mojito", "raspberry", 1.2], ["mojito", "green apple", 1.2], ["mojito", "passion", 1.2],
-  ["milkshake", "oreo", 1.4], ["milkshake", "lotus", 1.5], ["milkshake", "nutella", 1.6], ["juice", "lemon mint", 1.2], ["juice", "orange", 1.2],
-  ["sweets", "sansabstian", 2.2], ["sweets", "chocolate cake", 1.8], ["sweets", "pistachio cheesecake", 1.7],
-  ["iced tea", "peach iced tea", 1.8], ["iced tea", "pasion iced tea", 1.8], ["iced tea", "lemon iced tea", 1.8], ["iced tea", "strawberry iced tea", 1.8], ["iced tea", "pineapple", 1.8], ["iced tea", "grenadine iced tea", 1.8],
-  ["Hot tea", "Green tea", .4], ["Hot tea", "Black tea (meant)", .4], ["Hot tea", "Hibicus tea", .4], ["Hot tea", "Milk tea", .5],
-  ["frappuccino", "Vanilla frappe", 1.7], ["frappuccino", "Pistachio frappe", 1.7], ["frappuccino", "Caramel frappe", 1.7], ["frappuccino", "Dark mocha frappe", 1.7], ["frappuccino", "White mocha frappe", 1.7], ["frappuccino", "Nutella frappe", 1.7],
-];
-
-function freshStore(): Store {
-  const categories = seedCategories.map((name, i) => ({ id: i + 1, name, sort_order: i + 1 }));
-  return {
-    staff: [
-      { id: 1, name: "Aljulanda", username: "aljulanda", password: "123" },
-      { id: 2, name: "Ghassan", username: "ghassan", password: "123" },
-      { id: 3, name: "Kumar", username: "kumar", password: "132" },
-    ],
-    categories,
-    menu: seedMenu.map(([category, name, price], i) => ({ id: i + 1, name, price, cost_price: 0, stock_qty: 100, low_stock_threshold: 5, active: 1, show_on_customer_menu: true, category_id: categories.find((c) => c.name === category)!.id })),
-    shifts: [], orders: [], lines: [], next: { category: categories.length + 1, menu: seedMenu.length + 1, shift: 1, order: 1, line: 1 },
-  };
-}
-
-function store(): Store {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) {
-      const data = JSON.parse(raw) as Store;
-      if (!data.staff.some((staff) => staff.username === "kumar")) {
-        data.staff.push({ id: 3, name: "Kumar", username: "kumar", password: "132" });
-        save(data);
-      }
-      return data;
-    }
-  } catch { /* reset an unreadable local cache */ }
-  const data = freshStore(); save(data); return data;
-}
-function save(data: Store) { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); }
-function copy<T>(value: T): T { return JSON.parse(JSON.stringify(value)) as T; }
-function now() { return new Date().toISOString(); }
-function next(data: Store, key: string) { const id = data.next[key]; data.next[key] += 1; return id; }
-function menuWithCategory(data: Store, item: MenuItem): MenuItem { const category = data.categories.find((c) => c.id === item.category_id); return { ...item, category_name: category?.name, is_low_stock: item.stock_qty <= item.low_stock_threshold ? 1 : 0 }; }
-function fullOrder(data: Store, id: number) { const order = data.orders.find((o) => o.id === id); if (!order) throw new Error("Order not found"); return { order: copy(order), lines: copy(data.lines.filter((line) => line.order_id === id).map(({ order_id: _, ...line }) => line)) }; }
-function calc(lines: { qty: number; unitPrice: number }[], discountType?: string, discountValue?: number) { const subtotal = lines.reduce((sum, line) => sum + line.qty * line.unitPrice, 0); const value = Number(discountValue) || 0; const discount = discountType === "percent" ? Math.min(subtotal, subtotal * value / 100) : discountType === "fixed" ? Math.min(subtotal, value) : 0; return { subtotal, discount, total: subtotal - discount, value }; }
-function dateOf(iso: string) { return iso.slice(0, 10); }
-function paymentMethod(cash: number, visa: number) { return cash > 0 && visa > 0 ? "split" : visa > 0 ? "visa" : "cash"; }
-function validatePayment(total: number, cash: number, visa: number) { cash = Math.round(cash * 1000) / 1000; visa = Math.round(visa * 1000) / 1000; if (cash < 0 || visa < 0 || Math.abs(cash + visa - total) > .01) throw new Error(`Cash + Visa must equal ${total.toFixed(3)} OMR`); return { cash, visa }; }
-function replaceLines(data: Store, orderId: number, input: { menuItemId: number; qty: number; unitPrice: number }[], method = "cash") {
-  for (const old of data.lines.filter((line) => line.order_id === orderId)) { const item = data.menu.find((m) => m.id === old.menu_item_id); if (item) item.stock_qty += old.qty; }
-  const normalized = input.map((line) => ({ ...line, qty: Number(line.qty), unitPrice: Number(line.unitPrice) }));
-  for (const line of normalized) { const item = data.menu.find((m) => m.id === line.menuItemId && m.active); if (!item) throw new Error("Menu item not found"); if (item.stock_qty < line.qty) throw new Error(`Not enough stock for ${item.name} (have ${item.stock_qty})`); }
-  data.lines = data.lines.filter((line) => line.order_id !== orderId);
-  for (const line of normalized) { const item = data.menu.find((m) => m.id === line.menuItemId)!; item.stock_qty -= line.qty; data.lines.push({ id: next(data, "line"), order_id: orderId, menu_item_id: item.id, item_name: item.name, qty: line.qty, unit_price: line.unitPrice, cost_price: item.cost_price, line_total: line.qty * line.unitPrice, cost_total: line.qty * item.cost_price, payment_method: method }); }
-}
-function reportForOrders(data: Store, orders: Order[]): ReportSummary { const paid = orders.filter((order) => order.status === "paid"); const lines = data.lines.filter((line) => paid.some((order) => order.id === line.order_id)); const cash_total = paid.reduce((sum, order) => sum + order.cash_amount, 0); const visa_total = paid.reduce((sum, order) => sum + order.visa_amount, 0); const cost_total = lines.reduce((sum, line) => sum + line.cost_total, 0); return { cash_total, visa_total, items_sold: lines.reduce((sum, line) => sum + line.qty, 0), order_count: paid.length, grand_total: cash_total + visa_total, cost_total, profit_total: cash_total + visa_total - cost_total, discount_total: paid.reduce((sum, order) => sum + order.discount_amount, 0) }; }
-function periodReport(from: string, to: string): PeriodReport { const data = store(); const orders = data.orders.filter((order) => dateOf(order.created_at) >= from && dateOf(order.created_at) <= to); const days = [...new Set(orders.filter((order) => order.status === "paid").map((order) => dateOf(order.created_at)))].sort(); return { from, to, summary: reportForOrders(data, orders), byDay: days.map((day) => { const summary = reportForOrders(data, orders.filter((order) => dateOf(order.created_at) === day)); return { day, revenue: summary.grand_total, cost: summary.cost_total, profit: summary.profit_total, items: summary.items_sold }; }) }; }
-function groupPeriod(iso: string, groupBy: string) { const date = new Date(iso); if (groupBy === "month") return dateOf(iso).slice(0, 7); if (groupBy === "week") { const d = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate())); d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7)); const year = d.getUTCFullYear(); const start = new Date(Date.UTC(year, 0, 1)); return `${year}-W${String(Math.ceil((((d.getTime() - start.getTime()) / 86400000) + 1) / 7)).padStart(2, "0")}`; } return dateOf(iso); }
+export type OrderLine = {
+  id: number;
+  menu_item_id: number;
+  item_name: string;
+  qty: number;
+  unit_price: number;
+  cost_price: number;
+  line_total: number;
+  cost_total: number;
+  payment_method: string;
+};
 
 export const api = {
-  staff: async () => copy(store().staff.map(({ password: _, ...staff }) => staff)),
-  login: async (username: string, password: string) => { const staff = store().staff.find((entry) => entry.username === username && entry.password === password); if (!staff) throw new Error("Wrong username or password"); const { password: _, ...safe } = staff; return copy(safe); },
-  categories: async () => copy(store().categories.sort((a, b) => a.sort_order - b.sort_order)),
-  addCategory: async (name: string) => { const data = store(); if (data.categories.some((category) => category.name.toLowerCase() === name.toLowerCase())) throw new Error("A category with that name already exists"); const category = { id: next(data, "category"), name, sort_order: data.categories.length + 1 }; data.categories.push(category); save(data); return copy(category); },
-  menu: async () => { const data = store(); return data.menu.filter((item) => item.active).map((item) => menuWithCategory(data, item)); },
-  customerMenu: async () => { const data = store(); return data.menu.filter((item) => item.active && item.show_on_customer_menu).map((item) => menuWithCategory(data, item)); },
-  menuAll: async () => { const data = store(); return data.menu.map((item) => menuWithCategory(data, item)); },
-  activeShifts: async () => copy(store().shifts.filter((shift) => !shift.ended_at)),
-  openShift: async (username: string, password: string) => { const data = store(); const staff = data.staff.find((entry) => entry.username === username && entry.password === password); if (!staff) throw new Error("Wrong username or password"); if (data.shifts.some((shift) => shift.staff_id === staff.id && !shift.ended_at)) throw new Error("You already have an open shift"); if (data.shifts.filter((shift) => !shift.ended_at).length >= 2) throw new Error("Both shifts are open. Wait until the other employee ends their shift."); const shift: Shift = { id: next(data, "shift"), staff_id: staff.id, staff_name: staff.name, staff_username: staff.username, started_at: now(), ended_at: null }; data.shifts.push(shift); save(data); return copy(shift); },
-  closeShift: async (id: number, username: string, password: string) => { const data = store(); const shift = data.shifts.find((entry) => entry.id === id); const staff = data.staff.find((entry) => entry.username === username && entry.password === password); if (!shift) throw new Error("Shift not found"); if (!staff) throw new Error("Wrong username or password"); if (shift.staff_id !== staff.id) throw new Error("You can only end your own shift"); if (shift.ended_at) throw new Error("Shift already closed"); shift.ended_at = now(); save(data); return shiftReportFrom(data, id); },
-  shiftReport: async (id: number) => shiftReportFrom(store(), id),
-  shifts: async (from?: string, to?: string) => copy(store().shifts.filter((shift) => (!from || dateOf(shift.started_at) >= from) && (!to || dateOf(shift.started_at) <= to))),
-  tables: async () => { const data = store(); return [1, 2, 3, 4, 5].map((number) => { const order = data.orders.find((entry) => entry.status === "open" && entry.service_type === "dine_in" && entry.table_number === number); return order ? { number, status: "occupied" as const, orderId: order.id, total: order.total, itemCount: data.lines.filter((line) => line.order_id === order.id).reduce((sum, line) => sum + line.qty, 0), since: order.created_at } : { number, status: "free" as const }; }); },
-  openTable: async (tableNumber: number, shiftId: number) => { const data = store(); let order = data.orders.find((entry) => entry.status === "open" && entry.service_type === "dine_in" && entry.table_number === tableNumber); if (!order) { if (!data.shifts.some((shift) => shift.id === shiftId && !shift.ended_at)) throw new Error("Select an active shift"); order = { id: next(data, "order"), shift_id: shiftId, created_at: now(), updated_at: null, service_type: "dine_in", table_number: tableNumber, status: "open", payment_method: null, subtotal: 0, discount_amount: 0, total: 0, cash_amount: 0, visa_amount: 0, discount_type: null, discount_value: 0 }; data.orders.push(order); save(data); } return fullOrder(data, order.id); },
-  moveTable: async (id: number, tableNumber: number) => { const data = store(); const order = data.orders.find((entry) => entry.id === id); if (!order || order.status !== "open" || order.service_type !== "dine_in") throw new Error("Only an open dine-in order can be moved"); if (!Number.isInteger(tableNumber) || tableNumber < 1 || tableNumber > 5) throw new Error("Choose a table from 1 to 5"); if (order.table_number === tableNumber) return fullOrder(data, id); if (data.orders.some((entry) => entry.id !== id && entry.status === "open" && entry.service_type === "dine_in" && entry.table_number === tableNumber)) throw new Error(`Table ${tableNumber} is occupied`); order.table_number = tableNumber; order.updated_at = now(); save(data); return fullOrder(data, id); },
-  getOrder: async (id: number) => fullOrder(store(), id),
-  updateOrder: async (id: number, body: { lines: { menuItemId: number; qty: number; unitPrice: number }[]; discountType?: string; discountValue?: number }) => { const data = store(); const order = data.orders.find((entry) => entry.id === id); if (!order || order.status !== "open") throw new Error("Order is already paid or missing"); const totals = calc(body.lines, body.discountType, body.discountValue); replaceLines(data, id, body.lines); Object.assign(order, { subtotal: totals.subtotal, discount_amount: totals.discount, total: totals.total, discount_type: body.discountType || null, discount_value: totals.value, updated_at: now() }); save(data); return fullOrder(data, id); },
-  payOrder: async (id: number, payment: { cashAmount: number; visaAmount: number }) => { const data = store(); const order = data.orders.find((entry) => entry.id === id); if (!order || order.status !== "open") throw new Error("Order is already paid or missing"); if (!data.lines.some((line) => line.order_id === id)) throw new Error("Add items before payment"); const { cash, visa } = validatePayment(order.total, payment.cashAmount, payment.visaAmount); const method = paymentMethod(cash, visa); for (const line of data.lines.filter((entry) => entry.order_id === id)) line.payment_method = method === "visa" ? "visa" : "cash"; Object.assign(order, { status: "paid", payment_method: method, cash_amount: cash, visa_amount: visa, updated_at: now() }); save(data); return fullOrder(data, id); },
-  cancelOrder: async (id: number) => { const data = store(); const order = data.orders.find((entry) => entry.id === id); if (!order || order.status !== "open") throw new Error("Cannot cancel this order"); for (const line of data.lines.filter((entry) => entry.order_id === id)) { const item = data.menu.find((entry) => entry.id === line.menu_item_id); if (item) item.stock_qty += line.qty; } data.lines = data.lines.filter((entry) => entry.order_id !== id); data.orders = data.orders.filter((entry) => entry.id !== id); save(data); },
-  createTakeawayOrder: async (body: { shiftId: number; lines: { menuItemId: number; qty: number; unitPrice: number }[]; cashAmount: number; visaAmount: number; discountType?: string; discountValue?: number }) => { const data = store(); const totals = calc(body.lines, body.discountType, body.discountValue); const { cash, visa } = validatePayment(totals.total, body.cashAmount, body.visaAmount); const method = paymentMethod(cash, visa); const order: Order = { id: next(data, "order"), shift_id: body.shiftId, created_at: now(), updated_at: now(), service_type: "takeaway", table_number: null, status: "paid", payment_method: method, subtotal: totals.subtotal, discount_amount: totals.discount, total: totals.total, cash_amount: cash, visa_amount: visa, discount_type: body.discountType || null, discount_value: totals.value }; data.orders.push(order); replaceLines(data, order.id, body.lines, method === "visa" ? "visa" : "cash"); save(data); return fullOrder(data, order.id); },
-  stock: async () => { const data = store(); return data.menu.filter((item) => item.active).map((item) => menuWithCategory(data, item)); },
-  adjustStock: async (id: number, qtyChange: number) => { const data = store(); const item = data.menu.find((entry) => entry.id === id); if (!item) throw new Error("Item not found"); item.stock_qty = Math.max(0, item.stock_qty + Number(qtyChange)); save(data); return menuWithCategory(data, item); },
-  addMenuItem: async (body: { name: string; price: number; costPrice?: number; stockQty?: number; categoryId: number; showOnCustomerMenu?: boolean }) => { const data = store(); if (!data.categories.some((category) => category.id === body.categoryId)) throw new Error("Category not found"); const item: MenuItem = { id: next(data, "menu"), name: body.name, price: Number(body.price), cost_price: Number(body.costPrice) || 0, stock_qty: Number(body.stockQty) || 0, low_stock_threshold: 5, active: 1, show_on_customer_menu: body.showOnCustomerMenu ?? true, category_id: body.categoryId }; data.menu.push(item); save(data); return menuWithCategory(data, item); },
-  updateMenuItem: async (id: number, body: Partial<MenuItem> & { costPrice?: number; stockQty?: number; categoryId?: number; showOnCustomerMenu?: boolean }) => { const data = store(); const item = data.menu.find((entry) => entry.id === id); if (!item) throw new Error("Item not found"); if (body.price !== undefined) item.price = Number(body.price); if (body.costPrice !== undefined) item.cost_price = Number(body.costPrice); if (body.stockQty !== undefined) item.stock_qty = Number(body.stockQty); if (body.categoryId !== undefined) item.category_id = body.categoryId; if (body.showOnCustomerMenu !== undefined) item.show_on_customer_menu = body.showOnCustomerMenu; if (body.name !== undefined) item.name = body.name; save(data); return menuWithCategory(data, item); },
-  deleteMenuItem: async (id: number) => {
-    const data = store();
-    const item = data.menu.find((entry) => entry.id === id);
-    if (!item) throw new Error("Item not found");
-    if (data.lines.some((line) => line.menu_item_id === id)) {
-      // Preserve historical order lines for reports, but remove the item from all active menus.
-      item.active = 0;
-      item.show_on_customer_menu = false;
-    } else {
-      data.menu = data.menu.filter((entry) => entry.id !== id);
-    }
-    save(data);
-    return { ok: true };
+  staff: () => request<Staff[]>("/staff"),
+  login: (username: string, password: string) =>
+    request<Staff>("/auth/login", {
+      method: "POST",
+      body: JSON.stringify({ username, password }),
+    }),
+  categories: () => request<Category[]>("/categories"),
+  addCategory: (name: string) =>
+    request<Category>("/categories", { method: "POST", body: JSON.stringify({ name }) }),
+  menu: () => request<MenuItem[]>("/menu"),
+  customerMenu: () => request<MenuItem[]>("/menu/customer"),
+  menuAll: () => request<MenuItem[]>("/menu/all"),
+  activeShifts: () => request<Shift[]>("/shifts/active"),
+  openShift: (username: string, password: string) =>
+    request<Shift>("/shifts/open", {
+      method: "POST",
+      body: JSON.stringify({ username, password }),
+    }),
+  closeShift: (id: number, username: string, password: string) =>
+    request<ShiftReport>(`/shifts/${id}/close`, {
+      method: "POST",
+      body: JSON.stringify({ username, password }),
+    }),
+  shiftReport: (id: number) => request<ShiftReport>(`/shifts/${id}/report`),
+  shifts: (from?: string, to?: string) => {
+    const q = new URLSearchParams();
+    if (from) q.set("from", from);
+    if (to) q.set("to", to);
+    return request<Shift[]>(`/shifts?${q}`);
   },
-  dailyReport: async (date: string) => periodReport(date, date),
-  monthlyReport: async (month: string) => { const start = `${month}-01`; const end = new Date(Number(month.slice(0, 4)), Number(month.slice(5, 7)), 0).toISOString().slice(0, 10); return periodReport(start, end); },
-  rangeReport: async (from: string, to: string) => periodReport(from, to),
-  itemsReport: async (from: string, to: string, groupBy = "day") => { const data = store(); const paid = data.orders.filter((order) => order.status === "paid" && dateOf(order.created_at) >= from && dateOf(order.created_at) <= to); const build = (lines: (OrderLine & { order_id: number })[]) => Object.values(lines.reduce<Record<string, ItemTotals>>((out, line) => { const row = out[line.item_name] ??= { item_name: line.item_name, qty_sold: 0, revenue: 0, cost: 0, profit: 0 }; row.qty_sold += line.qty; row.revenue += line.line_total; row.cost += line.cost_total; row.profit = row.revenue - row.cost; return out; }, {})); const lines = data.lines.filter((line) => paid.some((order) => order.id === line.order_id)); const grouped = new Map<string, (OrderLine & { order_id: number })[]>(); for (const line of lines) { const order = paid.find((entry) => entry.id === line.order_id)!; const period = groupPeriod(order.created_at, groupBy); grouped.set(period, [...(grouped.get(period) ?? []), line]); } return { from, to, groupBy, totals: build(lines), items: [...grouped.entries()].flatMap(([period, group]) => build(group).map((item) => ({ ...item, period }))) }; },
+  tables: () => request<TableStatus[]>("/tables"),
+  openTable: (tableNumber: number, shiftId: number) =>
+    request<{ order: Order; lines: OrderLine[] }>(`/tables/${tableNumber}/open`, {
+      method: "POST",
+      body: JSON.stringify({ shiftId }),
+    }),
+  moveTable: (id: number, tableNumber: number) =>
+    request<{ order: Order; lines: OrderLine[] }>(`/orders/${id}/table`, {
+      method: "PATCH",
+      body: JSON.stringify({ tableNumber }),
+    }),
+  getOrder: (id: number) =>
+    request<{ order: Order; lines: OrderLine[] }>(`/orders/${id}`),
+  updateOrder: (
+    id: number,
+    body: {
+      lines: { menuItemId: number; qty: number; unitPrice: number }[];
+      discountType?: string;
+      discountValue?: number;
+    }
+  ) =>
+    request<{ order: Order; lines: OrderLine[] }>(`/orders/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(body),
+    }),
+  payOrder: (id: number, payment: { cashAmount: number; visaAmount: number }) =>
+    request<{ order: Order; lines: OrderLine[] }>(`/orders/${id}/pay`, {
+      method: "POST",
+      body: JSON.stringify(payment),
+    }),
+  cancelOrder: (id: number) =>
+    request(`/orders/${id}`, { method: "DELETE" }),
+  createTakeawayOrder: (body: {
+    shiftId: number;
+    lines: { menuItemId: number; qty: number; unitPrice: number }[];
+    cashAmount: number;
+    visaAmount: number;
+    discountType?: string;
+    discountValue?: number;
+  }) =>
+    request<{ order: Order; lines: OrderLine[] }>("/orders", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  stock: () => request<MenuItem[]>("/stock"),
+  adjustStock: (id: number, qtyChange: number, reason?: string) =>
+    request<MenuItem>(`/stock/${id}/adjust`, {
+      method: "POST",
+      body: JSON.stringify({ qtyChange, reason }),
+    }),
+  addMenuItem: (body: {
+    name: string;
+    price: number;
+    costPrice?: number;
+    stockQty?: number;
+    categoryId: number;
+    showOnCustomerMenu?: boolean;
+  }) => request<MenuItem>("/menu", { method: "POST", body: JSON.stringify(body) }),
+  updateMenuItem: (
+    id: number,
+    body: Partial<MenuItem> & {
+      costPrice?: number;
+      stockQty?: number;
+      categoryId?: number;
+      showOnCustomerMenu?: boolean;
+    }
+  ) =>
+    request<MenuItem>(`/menu/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
+  deleteMenuItem: (id: number) => request<{ ok: boolean }>(`/menu/${id}`, { method: "DELETE" }),
+  dailyReport: (date: string) => request<PeriodReport>(`/reports/daily?date=${date}`),
+  monthlyReport: (month: string) => request<PeriodReport>(`/reports/monthly?month=${month}`),
+  rangeReport: (from: string, to: string) =>
+    request<PeriodReport>(`/reports/range?from=${from}&to=${to}`),
+  itemsReport: (from: string, to: string, groupBy?: string) => {
+    const q = new URLSearchParams({ from, to });
+    if (groupBy) q.set("groupBy", groupBy);
+    return request<ItemsReport>(`/reports/items?${q}`);
+  },
 };
 
-function shiftReportFrom(data: Store, id: number): ShiftReport { const shift = data.shifts.find((entry) => entry.id === id); if (!shift) throw new Error("Shift not found"); const orders = data.orders.filter((order) => order.shift_id === id); return { shift: copy(shift), lines: copy(data.lines.filter((line) => orders.some((order) => order.id === line.order_id && order.status === "paid")).map((line) => ({ ...line, order_time: orders.find((order) => order.id === line.order_id)!.created_at, order_id: undefined }))) as unknown as ShiftReport["lines"], summary: reportForOrders(data, orders) }; }
-export function formatDateTime(iso: string) { return new Date(iso).toLocaleString(undefined, { dateStyle: "short", timeStyle: "short" }); }
+export type ShiftReport = {
+  shift: Shift;
+  lines: {
+    id: number;
+    item_name: string;
+    qty: number;
+    unit_price: number;
+    cost_price: number;
+    line_total: number;
+    cost_total: number;
+    payment_method: string;
+    order_time: string;
+  }[];
+  summary: {
+    cash_total: number;
+    visa_total: number;
+    items_sold: number;
+    order_count: number;
+    grand_total: number;
+    cost_total: number;
+    profit_total: number;
+    discount_total: number;
+  };
+};
+
+export type PeriodReport = {
+  from: string;
+  to: string;
+  summary: ShiftReport["summary"];
+  byDay: { day: string; revenue: number; cost: number; profit: number; items: number }[];
+};
+
+export type ItemsReport = {
+  from: string;
+  to: string;
+  groupBy: string;
+  totals: { item_name: string; qty_sold: number; revenue: number; cost: number; profit: number }[];
+  items: {
+    item_name: string;
+    period: string;
+    qty_sold: number;
+    revenue: number;
+    cost: number;
+    profit: number;
+  }[];
+};
+
+export function formatDateTime(iso: string) {
+  const normalized = iso.includes("T") ? iso : iso.replace(" ", "T");
+  return new Date(normalized).toLocaleString(undefined, {
+    dateStyle: "short",
+    timeStyle: "short",
+  });
+}

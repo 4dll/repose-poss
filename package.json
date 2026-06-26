@@ -7,12 +7,12 @@
     "node": ">=22.5.0"
   },
   "scripts": {
-    "dev": "npm run dev:client",
+    "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
     "dev:server": "tsx watch server/index.ts",
     "dev:client": "vite",
-    "build": "vite build",
-    "start": "vite preview --host 0.0.0.0",
-    "db:seed": "echo 'The POS now seeds itself in browser local storage on first launch.'"
+    "build": "vite build && tsc -p tsconfig.server.json",
+    "start": "node dist/server/index.js",
+    "db:seed": "tsx server/seed.ts"
   },
   "dependencies": {
     "@vercel/node": "^5.0.0",

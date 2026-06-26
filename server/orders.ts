@@ -197,6 +197,48 @@ export async function updateOpenOrder(
   });
 }
 
+export async function moveOpenTableOrder(orderId: number, tableNumber: number) {
+  if (!Number.isInteger(tableNumber) || tableNumber < 1 || tableNumber > TABLE_COUNT) {
+    throw new Error(`Choose a table from 1 to ${TABLE_COUNT}`);
+  }
+
+  return transaction(async (client) => {
+    const order = await clientQueryOne<{
+      id: number;
+      status: string;
+      service_type: string;
+      table_number: number | null;
+    }>(client, "SELECT * FROM orders WHERE id = $1", [orderId]);
+    if (!order) throw new Error("Order not found");
+    if (order.status !== "open" || order.service_type !== "dine_in") {
+      throw new Error("Only an open dine-in order can be moved");
+    }
+    if (order.table_number === tableNumber) {
+      const full = await getOrderWithLines(orderId, client);
+      if (!full) throw new Error("Order not found after move");
+      return full;
+    }
+
+    const occupied = await clientQueryOne<{ id: number }>(
+      client,
+      `SELECT id FROM orders
+       WHERE id <> $1 AND status = 'open' AND service_type = 'dine_in' AND table_number = $2`,
+      [orderId, tableNumber]
+    );
+    if (occupied) throw new Error(`Table ${tableNumber} is occupied`);
+
+    await clientExecute(
+      client,
+      "UPDATE orders SET table_number = $1, updated_at = NOW() WHERE id = $2",
+      [tableNumber, orderId]
+    );
+
+    const full = await getOrderWithLines(orderId, client);
+    if (!full) throw new Error("Order not found after move");
+    return full;
+  });
+}
+
 export type PaymentSplit = { cashAmount: number; visaAmount: number };
 
 export function validatePayment(total: number, cashAmount: number, visaAmount: number) {

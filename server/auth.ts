@@ -63,7 +63,7 @@ export async function ensureStaffCredentials() {
   const allStaff = await query<StaffAuth>("SELECT id, name, username, password_hash FROM staff");
 
   const defaults: Record<number, { username: string; password: string }> = {
-    3: { username: "kumar", password: "123" },
+    3: { username: "kumar", password: "132" },
     4: { username: "admin", password: "1234" },
     5: { username: "aljulanda", password: "123" },
     6: { username: "ghassan", password: "123" },
@@ -71,7 +71,12 @@ export async function ensureStaffCredentials() {
   for (const row of allStaff) {
     const def = defaults[row.id];
     if (!def) continue;
-    if (!row.username || !row.password_hash) {
+    if (
+      !row.username ||
+      !row.password_hash ||
+      row.username !== def.username ||
+      !verifyPassword(def.password, row.password_hash)
+    ) {
       await execute("UPDATE staff SET username = $1, password_hash = $2 WHERE id = $3", [
         def.username,
         hashPassword(def.password),

@@ -19,6 +19,7 @@ import {
   getOpenTableOrder,
   getOrderWithLines,
   payOrder,
+  moveOpenTableOrder,
   updateOpenOrder,
 } from "./orders.js";
 
@@ -493,6 +494,16 @@ export async function createApp() {
       const { lines, discountType, discountValue } = req.body;
       if (!lines) return res.status(400).json({ error: "Lines required" });
       res.json(await updateOpenOrder(orderId, lines, discountType, discountValue));
+    } catch (e) {
+      res.status(400).json({ error: (e as Error).message });
+    }
+  });
+
+  app.patch("/api/orders/:id/table", async (req, res) => {
+    try {
+      const orderId = Number(req.params.id);
+      const tableNumber = Number(req.body.tableNumber);
+      res.json(await moveOpenTableOrder(orderId, tableNumber));
     } catch (e) {
       res.status(400).json({ error: (e as Error).message });
     }
