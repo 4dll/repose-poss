@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { api, Category, DATA_CHANGE_EVENT, MenuItem } from "../api";
 import { Money } from "../components/Money";
+import { decodePublishedMenuFromHash } from "../menuShare";
 
 const ITEM_IMAGES: Record<string, string> = {
   v60: "/menu-images/v60.jpg",
@@ -20,6 +21,19 @@ export default function CustomerMenuPage() {
 
   const load = useCallback(async () => {
     try {
+      const publishedMenu = await decodePublishedMenuFromHash(window.location.hash);
+      if (publishedMenu) {
+        setMenu(publishedMenu.items);
+        setCategories(publishedMenu.categories);
+        setSelectedCategoryId((current) =>
+          current && publishedMenu.categories.some((cat) => cat.id === current)
+            ? current
+            : publishedMenu.categories[0]?.id ?? null
+        );
+        setError("");
+        return;
+      }
+
       const [items, cats] = await Promise.all([api.customerMenu(), api.categories()]);
       const visibleCats = cats.filter((cat) => items.some((item) => item.category_id === cat.id));
       setMenu(items);

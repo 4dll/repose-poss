@@ -1,16 +1,29 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import QRCode from "qrcode";
+import { api } from "../api";
+import { encodePublishedMenu } from "../menuShare";
 
 export default function MenuQrPage() {
   const [qr, setQr] = useState("");
-  const [qrVersion, setQrVersion] = useState(() => Date.now());
-  const menuUrl = useMemo(() => `${window.location.origin}/menu?v=${qrVersion}`, [qrVersion]);
+  const [menuUrl, setMenuUrl] = useState(() => `${window.location.origin}/menu`);
+  const displayUrl = `${window.location.origin}/menu`;
+
+  const refreshQr = useCallback(async () => {
+    setQr("");
+    try {
+      const [items, categories] = await Promise.all([api.customerMenu(), api.categories()]);
+      const encodedMenu = await encodePublishedMenu(categories, items);
+      setMenuUrl(`${window.location.origin}/menu#menu=${encodedMenu}`);
+    } catch {
+      setMenuUrl(`${window.location.origin}/menu?v=${Date.now()}`);
+    }
+  }, []);
 
   useEffect(() => {
     QRCode.toDataURL(menuUrl, {
-      errorCorrectionLevel: "H",
-      margin: 2,
-      width: 720,
+      errorCorrectionLevel: "M",
+      margin: 1,
+      width: 920,
       color: {
         dark: "#111111",
         light: "#ffffff",
@@ -19,6 +32,10 @@ export default function MenuQrPage() {
       .then(setQr)
       .catch(() => setQr(""));
   }, [menuUrl]);
+
+  useEffect(() => {
+    void refreshQr();
+  }, [refreshQr]);
 
   function printQr() {
     document.body.classList.add("qr-printing");
@@ -30,11 +47,6 @@ export default function MenuQrPage() {
       window.print();
       window.setTimeout(removePrintClass, 1000);
     }, 100);
-  }
-
-  function refreshQr() {
-    setQr("");
-    setQrVersion(Date.now());
   }
 
   return (
@@ -52,14 +64,14 @@ export default function MenuQrPage() {
           {qr ? <img src={qr} alt={`QR code for ${menuUrl}`} /> : <span>Creating QR code...</span>}
         </div>
 
-        <p className="menu-qr-url">{menuUrl}</p>
+        <p className="menu-qr-url">{displayUrl}</p>
       </section>
 
       <div className="menu-qr-actions no-print">
         <a className="btn-secondary" href={menuUrl} target="_blank" rel="noreferrer">
           Open menu
         </a>
-        <button type="button" className="btn-secondary" onClick={refreshQr}>
+        <button type="button" className="btn-secondary" onClick={() => void refreshQr()}>
           Refresh QR
         </button>
         <button type="button" className="btn-primary" onClick={printQr}>
