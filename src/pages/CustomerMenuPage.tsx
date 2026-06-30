@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
-import { api, Category, MenuItem } from "../api";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { api, Category, DATA_CHANGE_EVENT, MenuItem } from "../api";
 import { Money } from "../components/Money";
 
 const ITEM_IMAGES: Record<string, string> = {
@@ -18,20 +18,45 @@ export default function CustomerMenuPage() {
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
   const [error, setError] = useState("");
 
+  const load = useCallback(async () => {
+    try {
+      const [items, cats] = await Promise.all([api.customerMenu(), api.categories()]);
+      const visibleCats = cats.filter((cat) => items.some((item) => item.category_id === cat.id));
+      setMenu(items);
+      setCategories(visibleCats);
+      setSelectedCategoryId((current) =>
+        current && visibleCats.some((cat) => cat.id === current)
+          ? current
+          : visibleCats[0]?.id ?? null
+      );
+      setError("");
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  }, []);
+
   useEffect(() => {
-    async function load() {
-      try {
-        const [items, cats] = await Promise.all([api.customerMenu(), api.categories()]);
-        const visibleCats = cats.filter((cat) => items.some((item) => item.category_id === cat.id));
-        setMenu(items);
-        setCategories(visibleCats);
-        setSelectedCategoryId((current) => current ?? visibleCats[0]?.id ?? null);
-      } catch (e) {
-        setError((e as Error).message);
+    function refreshOnVisible() {
+      if (document.visibilityState === "visible") {
+        void load();
       }
     }
-    load();
-  }, []);
+
+    void load();
+    window.addEventListener(DATA_CHANGE_EVENT, load);
+    window.addEventListener("storage", load);
+    window.addEventListener("focus", load);
+    document.addEventListener("visibilitychange", refreshOnVisible);
+    const refreshTimer = window.setInterval(load, 5000);
+
+    return () => {
+      window.removeEventListener(DATA_CHANGE_EVENT, load);
+      window.removeEventListener("storage", load);
+      window.removeEventListener("focus", load);
+      document.removeEventListener("visibilitychange", refreshOnVisible);
+      window.clearInterval(refreshTimer);
+    };
+  }, [load]);
 
   const grouped = useMemo(
     () =>

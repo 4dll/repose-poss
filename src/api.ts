@@ -2,6 +2,7 @@
 import localSnapshot from "./localSnapshot";
 
 const STORAGE_KEY = "repose-pos-local-data-v2";
+export const DATA_CHANGE_EVENT = "repose-pos-local-data-changed";
 
 export type Staff = { id: number; name: string; username: string };
 export type Category = { id: number; name: string; sort_order: number };
@@ -68,7 +69,10 @@ function store(): Store {
   } catch { /* reset an unreadable local cache */ }
   const data = freshStore(); ensureDefaultStaff(data); save(data); return data;
 }
-function save(data: Store) { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); }
+function save(data: Store) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  window.dispatchEvent(new Event(DATA_CHANGE_EVENT));
+}
 function copy<T>(value: T): T { return JSON.parse(JSON.stringify(value)) as T; }
 function now() { return new Date().toISOString(); }
 function next(data: Store, key: string) { const id = data.next[key]; data.next[key] += 1; return id; }
