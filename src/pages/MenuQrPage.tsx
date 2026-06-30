@@ -3,7 +3,8 @@ import QRCode from "qrcode";
 
 export default function MenuQrPage() {
   const [qr, setQr] = useState("");
-  const menuUrl = useMemo(() => `${window.location.origin}/menu`, []);
+  const [qrVersion, setQrVersion] = useState(() => Date.now());
+  const menuUrl = useMemo(() => `${window.location.origin}/menu?v=${qrVersion}`, [qrVersion]);
 
   useEffect(() => {
     QRCode.toDataURL(menuUrl, {
@@ -31,6 +32,11 @@ export default function MenuQrPage() {
     }, 100);
   }
 
+  function refreshQr() {
+    setQr("");
+    setQrVersion(Date.now());
+  }
+
   return (
     <main className="menu-qr-page">
       <section className="menu-qr-card">
@@ -50,9 +56,12 @@ export default function MenuQrPage() {
       </section>
 
       <div className="menu-qr-actions no-print">
-        <a className="btn-secondary" href="/menu" target="_blank" rel="noreferrer">
+        <a className="btn-secondary" href={menuUrl} target="_blank" rel="noreferrer">
           Open menu
         </a>
+        <button type="button" className="btn-secondary" onClick={refreshQr}>
+          Refresh QR
+        </button>
         <button type="button" className="btn-primary" onClick={printQr}>
           Print QR
         </button>
