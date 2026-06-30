@@ -18,6 +18,7 @@ Open http://localhost:5173. The current POS data snapshot is added automatically
 | Aljulanda | `aljulanda` | `123` |
 | Ghassan | `ghassan` | `123` |
 | Kumar | `kumar` | `132` |
+| Shwe | `shwe` | `132` |
 | Admin | `admin` | `1234` |
 
 ## Important storage behavior

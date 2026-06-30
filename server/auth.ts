@@ -45,7 +45,7 @@ export async function verifyStaffCredentials(
 export async function ensureStaffCredentials() {
   await execute(
     `INSERT INTO staff (id, name)
-     VALUES (3, 'Kumar'), (4, 'Admin'), (5, 'Aljulanda'), (6, 'Ghassan')
+     VALUES (3, 'Kumar'), (4, 'Admin'), (5, 'Aljulanda'), (6, 'Ghassan'), (7, 'Shwe')
      ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name`
   );
 
@@ -67,6 +67,7 @@ export async function ensureStaffCredentials() {
     4: { username: "admin", password: "1234" },
     5: { username: "aljulanda", password: "123" },
     6: { username: "ghassan", password: "123" },
+    7: { username: "shwe", password: "132" },
   };
   for (const row of allStaff) {
     const def = defaults[row.id];

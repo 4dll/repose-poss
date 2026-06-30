@@ -28,8 +28,33 @@ type ItemTotals = { item_name: string; qty_sold: number; revenue: number; cost: 
 type StoredStaff = Staff & { password: string };
 type Store = { staff: StoredStaff[]; categories: Category[]; menu: MenuItem[]; shifts: Shift[]; orders: Order[]; lines: (OrderLine & { order_id: number })[]; next: Record<string, number> };
 
+const DEFAULT_STAFF: StoredStaff[] = [
+  { id: 3, name: "Kumar", username: "kumar", password: "132" },
+  { id: 4, name: "Admin", username: "admin", password: "1234" },
+  { id: 5, name: "Aljulanda", username: "aljulanda", password: "123" },
+  { id: 6, name: "Ghassan", username: "ghassan", password: "123" },
+  { id: 7, name: "Shwe", username: "shwe", password: "132" },
+];
+
 function freshStore(): Store {
   return copy(localSnapshot) as Store;
+}
+
+function ensureDefaultStaff(data: Store) {
+  let changed = false;
+  for (const def of DEFAULT_STAFF) {
+    const staff = data.staff.find((entry) => entry.username === def.username) ?? data.staff.find((entry) => entry.id === def.id);
+    if (!staff) {
+      data.staff.push({ ...def });
+      changed = true;
+      continue;
+    }
+    if (staff.name !== def.name || staff.username !== def.username || staff.password !== def.password) {
+      Object.assign(staff, def);
+      changed = true;
+    }
+  }
+  if (changed) save(data);
 }
 
 function store(): Store {
@@ -37,18 +62,11 @@ function store(): Store {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const data = JSON.parse(raw) as Store;
-      const kumar = data.staff.find((staff) => staff.username === "kumar");
-      if (kumar) {
-        kumar.password = "132";
-        save(data);
-      } else {
-        data.staff.push({ id: 3, name: "Kumar", username: "kumar", password: "132" });
-        save(data);
-      }
+      ensureDefaultStaff(data);
       return data;
     }
   } catch { /* reset an unreadable local cache */ }
-  const data = freshStore(); save(data); return data;
+  const data = freshStore(); ensureDefaultStaff(data); save(data); return data;
 }
 function save(data: Store) { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); }
 function copy<T>(value: T): T { return JSON.parse(JSON.stringify(value)) as T; }
