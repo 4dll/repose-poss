@@ -1,29 +1,16 @@
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import QRCode from "qrcode";
-import { api, DATA_CHANGE_EVENT } from "../api";
-import { encodePublishedMenu } from "../menuShare";
+import { jsPDF } from "jspdf";
 
 export default function MenuQrPage() {
   const [qr, setQr] = useState("");
-  const [menuUrl, setMenuUrl] = useState(() => `${window.location.origin}/menu`);
-  const displayUrl = `${window.location.origin}/menu`;
-
-  const refreshQr = useCallback(async () => {
-    setQr("");
-    try {
-      const [items, categories] = await Promise.all([api.customerMenu(), api.categories()]);
-      const encodedMenu = await encodePublishedMenu(categories, items);
-      setMenuUrl(`${window.location.origin}/menu#menu=${encodedMenu}`);
-    } catch {
-      setMenuUrl(`${window.location.origin}/menu?v=${Date.now()}`);
-    }
-  }, []);
+  const menuUrl = `${window.location.origin}/menu`;
 
   useEffect(() => {
     QRCode.toDataURL(menuUrl, {
-      errorCorrectionLevel: "M",
-      margin: 1,
-      width: 920,
+      errorCorrectionLevel: "H",
+      margin: 3,
+      width: 720,
       color: {
         dark: "#111111",
         light: "#ffffff",
@@ -32,32 +19,6 @@ export default function MenuQrPage() {
       .then(setQr)
       .catch(() => setQr(""));
   }, [menuUrl]);
-
-  useEffect(() => {
-    void refreshQr();
-  }, [refreshQr]);
-
-  useEffect(() => {
-    function refreshOnVisible() {
-      if (document.visibilityState === "visible") {
-        void refreshQr();
-      }
-    }
-
-    window.addEventListener(DATA_CHANGE_EVENT, refreshQr);
-    window.addEventListener("storage", refreshQr);
-    window.addEventListener("focus", refreshQr);
-    document.addEventListener("visibilitychange", refreshOnVisible);
-    const refreshTimer = window.setInterval(refreshQr, 5000);
-
-    return () => {
-      window.removeEventListener(DATA_CHANGE_EVENT, refreshQr);
-      window.removeEventListener("storage", refreshQr);
-      window.removeEventListener("focus", refreshQr);
-      document.removeEventListener("visibilitychange", refreshOnVisible);
-      window.clearInterval(refreshTimer);
-    };
-  }, [refreshQr]);
 
   function printQr() {
     document.body.classList.add("qr-printing");
@@ -69,6 +30,29 @@ export default function MenuQrPage() {
       window.print();
       window.setTimeout(removePrintClass, 1000);
     }, 100);
+  }
+
+  function downloadPdf() {
+    if (!qr) return;
+
+    const pdf = new jsPDF({ unit: "mm", format: "a4" });
+    const pageWidth = pdf.internal.pageSize.getWidth();
+    const qrSize = 130;
+    const qrX = (pageWidth - qrSize) / 2;
+
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(24);
+    pdf.text("Repose Cafe", pageWidth / 2, 32, { align: "center" });
+
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(15);
+    pdf.text("Scan for menu", pageWidth / 2, 44, { align: "center" });
+
+    pdf.addImage(qr, "PNG", qrX, 58, qrSize, qrSize);
+
+    pdf.setFontSize(11);
+    pdf.text(menuUrl, pageWidth / 2, 202, { align: "center" });
+    pdf.save("repose-menu-qr.pdf");
   }
 
   return (
@@ -86,15 +70,15 @@ export default function MenuQrPage() {
           {qr ? <img src={qr} alt={`QR code for ${menuUrl}`} /> : <span>Creating QR code...</span>}
         </div>
 
-        <p className="menu-qr-url">{displayUrl}</p>
+        <p className="menu-qr-url">{menuUrl}</p>
       </section>
 
       <div className="menu-qr-actions no-print">
         <a className="btn-secondary" href={menuUrl} target="_blank" rel="noreferrer">
           Open menu
         </a>
-        <button type="button" className="btn-secondary" onClick={() => void refreshQr()}>
-          Refresh QR
+        <button type="button" className="btn-secondary" onClick={downloadPdf} disabled={!qr}>
+          Download PDF
         </button>
         <button type="button" className="btn-primary" onClick={printQr}>
           Print QR
