@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import QRCode from "qrcode";
-import { api } from "../api";
+import { api, DATA_CHANGE_EVENT } from "../api";
 import { encodePublishedMenu } from "../menuShare";
 
 export default function MenuQrPage() {
@@ -35,6 +35,28 @@ export default function MenuQrPage() {
 
   useEffect(() => {
     void refreshQr();
+  }, [refreshQr]);
+
+  useEffect(() => {
+    function refreshOnVisible() {
+      if (document.visibilityState === "visible") {
+        void refreshQr();
+      }
+    }
+
+    window.addEventListener(DATA_CHANGE_EVENT, refreshQr);
+    window.addEventListener("storage", refreshQr);
+    window.addEventListener("focus", refreshQr);
+    document.addEventListener("visibilitychange", refreshOnVisible);
+    const refreshTimer = window.setInterval(refreshQr, 5000);
+
+    return () => {
+      window.removeEventListener(DATA_CHANGE_EVENT, refreshQr);
+      window.removeEventListener("storage", refreshQr);
+      window.removeEventListener("focus", refreshQr);
+      document.removeEventListener("visibilitychange", refreshOnVisible);
+      window.clearInterval(refreshTimer);
+    };
   }, [refreshQr]);
 
   function printQr() {
