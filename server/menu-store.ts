@@ -2,6 +2,7 @@ import pg from "pg";
 import { randomUUID } from "node:crypto";
 import { rootCertificates } from "node:tls";
 import { SUPABASE_ROOT_CA } from "./supabase-ca.js";
+import { removeRetiredPublicItems } from "../shared/retired-menu-items.js";
 import type { CustomerMenu, LiveMenu } from "../shared/customer-menu.js";
 
 export interface MenuStore {
@@ -27,9 +28,11 @@ export function createMenuStore(pool: pg.Pool): MenuStore {
   return {
     async read() {
       await init();
-      return (await pool.query<LiveMenu>(select)).rows[0];
+      const result = (await pool.query<LiveMenu>(select)).rows[0];
+      return { ...result, menu: result.menu ? removeRetiredPublicItems(result.menu) : null };
     },
     async publish(menu, baseRevision, mutationId) {
+      menu = removeRetiredPublicItems(menu);
       await init();
       const client = await pool.connect();
       try {

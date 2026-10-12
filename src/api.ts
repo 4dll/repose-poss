@@ -2,6 +2,7 @@
 import localSnapshot from "./localSnapshot";
 import { publicMenu } from "../shared/customer-menu";
 import { queueMenuSync } from "./menuSync";
+import { retireLocalMenuItems } from "../shared/retired-menu-items";
 
 const STORAGE_KEY = "repose-pos-local-data-v2";
 export const DATA_CHANGE_EVENT = "repose-pos-local-data-changed";
@@ -65,11 +66,12 @@ function store(): Store {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const data = JSON.parse(raw) as Store;
+      if (retireLocalMenuItems(data)) save(data);
       ensureDefaultStaff(data);
       return data;
     }
   } catch { /* reset an unreadable local cache */ }
-  const data = freshStore(); ensureDefaultStaff(data); save(data); return data;
+  const data = freshStore(); retireLocalMenuItems(data); ensureDefaultStaff(data); save(data); return data;
 }
 function save(data: Store) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
