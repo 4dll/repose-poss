@@ -1,5 +1,7 @@
 import pg from "pg";
 import { randomUUID } from "node:crypto";
+import { rootCertificates } from "node:tls";
+import { SUPABASE_ROOT_CA } from "./supabase-ca.js";
 import type { CustomerMenu, LiveMenu } from "../shared/customer-menu.js";
 
 export interface MenuStore {
@@ -64,17 +66,32 @@ export function createMenuStore(pool: pg.Pool): MenuStore {
 }
 
 let store: MenuStore | undefined;
+export function menuPoolConfig(connectionString: string): pg.PoolConfig {
+  const url = new URL(connectionString);
+  const local = ["localhost", "127.0.0.1", "[::1]"].includes(url.hostname);
+  const supabase = url.hostname.endsWith(".pooler.supabase.com") ||
+    /^db\.[a-z0-9]+\.supabase\.co$/.test(url.hostname);
+  // pg parses SSL URL options after the config object and can discard its CA.
+  // Keep remote connections fully verified, even with ?sslmode=require in a copied URL.
+  for (const key of ["ssl", "sslmode", "sslcert", "sslkey", "sslrootcert", "uselibpqcompat"]) {
+    url.searchParams.delete(key);
+  }
+  return {
+    connectionString: url.toString(),
+    ssl: local ? false : {
+      rejectUnauthorized: true,
+      ...(supabase ? { ca: [...rootCertificates, SUPABASE_ROOT_CA] } : {}),
+    },
+    max: 2,
+    connectionTimeoutMillis: 8000,
+    idleTimeoutMillis: 10000,
+  };
+}
+
 export function getMenuStore(): MenuStore {
   if (!process.env.DATABASE_URL) throw new Error("DATABASE_URL is required");
   if (!store) {
-    const url = new URL(process.env.DATABASE_URL);
-    store = createMenuStore(new pg.Pool({
-      connectionString: process.env.DATABASE_URL,
-      ssl: ["localhost", "127.0.0.1", "::1"].includes(url.hostname) ? false : { rejectUnauthorized: true },
-      max: 2,
-      connectionTimeoutMillis: 8000,
-      idleTimeoutMillis: 10000,
-    }));
+    store = createMenuStore(new pg.Pool(menuPoolConfig(process.env.DATABASE_URL)));
   }
   return store;
 }
