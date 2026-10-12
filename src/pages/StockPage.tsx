@@ -3,6 +3,7 @@ import { api, Category, MenuItem } from "../api";
 
 export default function StockPage() {
   const [items, setItems] = useState<MenuItem[]>([]);
+  const [search, setSearch] = useState("");
   const [categories, setCategories] = useState<Category[]>([]);
   const [error, setError] = useState("");
   const [newName, setNewName] = useState("");
@@ -164,6 +165,10 @@ export default function StockPage() {
   }
 
   const lowStock = items.filter((i) => i.stock_qty <= i.low_stock_threshold);
+  const searchTerm = search.trim().toLowerCase();
+  const filteredItems = items.filter((item) =>
+    item.name.toLowerCase().includes(searchTerm)
+  );
 
   return (
     <div>
@@ -266,8 +271,26 @@ export default function StockPage() {
 
       <div className="card">
         <h2>Stock levels</h2>
+        <div className="form-row" style={{ marginBottom: "1rem" }}>
+          <label style={{ width: "100%", maxWidth: 360 }}>
+            Search items
+            <input
+              type="search"
+              placeholder="Search by item name…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </label>
+          {search && (
+            <button type="button" className="btn-secondary" onClick={() => setSearch("")}>
+              Clear
+            </button>
+          )}
+        </div>
         {items.length === 0 ? (
           <p className="empty-state">No items yet. Add a category and menu item above.</p>
+        ) : filteredItems.length === 0 ? (
+          <p className="empty-state" role="status">No items match your search.</p>
         ) : (
           <div className="table-wrap">
             <table>
@@ -285,7 +308,7 @@ export default function StockPage() {
                 </tr>
               </thead>
               <tbody>
-                {items.map((item) => (
+                {filteredItems.map((item) => (
                   <tr key={item.id}>
                     <td>
                       {item.name}
