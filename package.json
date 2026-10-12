@@ -7,8 +7,10 @@
     "node": ">=22.5.0"
   },
   "scripts": {
-    "dev": "npm run dev:client",
+    "dev": "concurrently -k \"npm run dev:menu\" \"npm run dev:client\"",
     "dev:server": "tsx watch server/index.ts",
+    "dev:menu": "tsx watch server/menu-index.ts",
+    "test": "tsx --test tests/*.test.ts",
     "dev:client": "vite",
     "build": "vite build",
     "start": "vite preview --host 0.0.0.0",

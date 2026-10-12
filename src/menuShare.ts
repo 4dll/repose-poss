@@ -36,7 +36,7 @@ async function gzip(text: string) {
 }
 
 async function gunzip(bytes: Uint8Array) {
-  const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream("gzip"));
+  const stream = new Blob([new Uint8Array(bytes)]).stream().pipeThrough(new DecompressionStream("gzip"));
   return textDecoder.decode(await new Response(stream).arrayBuffer());
 }
 

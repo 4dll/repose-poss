@@ -1,5 +1,7 @@
 /** Browser-local POS store. Data is intentionally scoped to this browser profile. */
 import localSnapshot from "./localSnapshot";
+import { publicMenu } from "../shared/customer-menu";
+import { queueMenuSync } from "./menuSync";
 
 const STORAGE_KEY = "repose-pos-local-data-v2";
 export const DATA_CHANGE_EVENT = "repose-pos-local-data-changed";
@@ -38,7 +40,7 @@ const DEFAULT_STAFF: StoredStaff[] = [
 ];
 
 function freshStore(): Store {
-  return copy(localSnapshot) as Store;
+  return JSON.parse(JSON.stringify(localSnapshot)) as Store;
 }
 
 function ensureDefaultStaff(data: Store) {
@@ -72,6 +74,12 @@ function store(): Store {
 function save(data: Store) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
   window.dispatchEvent(new Event(DATA_CHANGE_EVENT));
+  try { queueMenuSync(publicMenu(data.categories, data.menu)); }
+  catch { /* A publishing failure must not undo a successful local save. */ }
+}
+export function getLocalCustomerMenu() {
+  const data = store();
+  return publicMenu(data.categories, data.menu);
 }
 function copy<T>(value: T): T { return JSON.parse(JSON.stringify(value)) as T; }
 function now() { return new Date().toISOString(); }

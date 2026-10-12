@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { api, Category, DATA_CHANGE_EVENT, MenuItem } from "../api";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { CustomerCategory, CustomerItem } from "../../shared/customer-menu";
 import { Money } from "../components/Money";
-import { decodePublishedMenuFromHash } from "../menuShare";
+import { loadLiveMenu } from "../menuSync";
 
 const ITEM_IMAGES: Record<string, string> = {
   v60: "/menu-images/v60.jpg",
@@ -9,43 +9,42 @@ const ITEM_IMAGES: Record<string, string> = {
   "turkish coffee": "/menu-images/turkish-coffee.jpg",
 };
 
-function itemImage(item: MenuItem) {
+function itemImage(item: CustomerItem) {
   return ITEM_IMAGES[item.name.trim().toLowerCase()];
 }
 
 export default function CustomerMenuPage() {
-  const [menu, setMenu] = useState<MenuItem[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
+  const [menu, setMenu] = useState<CustomerItem[]>([]);
+  const [categories, setCategories] = useState<CustomerCategory[]>([]);
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(true);
+  const fetching = useRef(false);
 
   const load = useCallback(async () => {
+    if (fetching.current) return;
+    fetching.current = true;
     try {
-      const publishedMenu = await decodePublishedMenuFromHash(window.location.hash);
-      if (publishedMenu) {
-        setMenu(publishedMenu.items);
-        setCategories(publishedMenu.categories);
-        setSelectedCategoryId((current) =>
-          current && publishedMenu.categories.some((cat) => cat.id === current)
-            ? current
-            : publishedMenu.categories[0]?.id ?? null
-        );
-        setError("");
-        return;
-      }
-
-      const [items, cats] = await Promise.all([api.customerMenu(), api.categories()]);
+      const published = await loadLiveMenu();
+      if (!published.menu) throw new Error("The menu has not been published yet. Please ask our staff.");
+      const { items, categories: cats } = published.menu;
       const visibleCats = cats.filter((cat) => items.some((item) => item.category_id === cat.id));
+      if (items.some((item) => item.category_id === null)) {
+        visibleCats.push({ id: -1, name: "Other", sort_order: Number.MAX_SAFE_INTEGER });
+      }
       setMenu(items);
       setCategories(visibleCats);
       setSelectedCategoryId((current) =>
-        current && visibleCats.some((cat) => cat.id === current)
+        current !== null && visibleCats.some((cat) => cat.id === current)
           ? current
           : visibleCats[0]?.id ?? null
       );
       setError("");
     } catch (e) {
       setError((e as Error).message);
+    } finally {
+      fetching.current = false;
+      setLoading(false);
     }
   }, []);
 
@@ -57,14 +56,12 @@ export default function CustomerMenuPage() {
     }
 
     void load();
-    window.addEventListener(DATA_CHANGE_EVENT, load);
     window.addEventListener("storage", load);
     window.addEventListener("focus", load);
     document.addEventListener("visibilitychange", refreshOnVisible);
     const refreshTimer = window.setInterval(load, 5000);
 
     return () => {
-      window.removeEventListener(DATA_CHANGE_EVENT, load);
       window.removeEventListener("storage", load);
       window.removeEventListener("focus", load);
       document.removeEventListener("visibilitychange", refreshOnVisible);
@@ -76,7 +73,7 @@ export default function CustomerMenuPage() {
     () =>
       categories.map((category) => ({
         category,
-        items: menu.filter((item) => item.category_id === category.id),
+        items: menu.filter((item) => (item.category_id ?? -1) === category.id),
       })),
     [categories, menu]
   );
@@ -99,6 +96,7 @@ export default function CustomerMenuPage() {
       </header>
 
       {error && <div className="alert alert-error">{error}</div>}
+      {loading && <p role="status">Loading menu…</p>}
 
       <nav className="customer-category-strip" aria-label="Menu categories">
         {categories.map((category) => (
@@ -149,7 +147,7 @@ export default function CustomerMenuPage() {
             </div>
           </div>
         ))}
-        {!error && visibleItemCount === 0 && (
+        {!loading && !error && visibleItemCount === 0 && (
           <p className="customer-menu-empty">No items are available in this category.</p>
         )}
       </section>

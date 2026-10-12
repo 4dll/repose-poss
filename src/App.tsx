@@ -5,13 +5,16 @@ import StockPage from "./pages/StockPage";
 import ReportsPage from "./pages/ReportsPage";
 import CustomerMenuPage from "./pages/CustomerMenuPage";
 import MenuQrPage from "./pages/MenuQrPage";
-import { api, Staff } from "./api";
+import { api, getLocalCustomerMenu, Staff } from "./api";
+import { getCustomerMenuUrl, startMenuSync } from "./menuSync";
+import MenuSyncStatus, { useMenuSyncState } from "./components/MenuSyncStatus";
 
 const ADMIN_SESSION_KEY = "repose-admin-session";
 
 export default function App() {
   const location = useLocation();
   const isCustomerMenu = location.pathname === "/menu";
+  useMenuSyncState();
   const [admin, setAdmin] = useState<Staff | null>(() => {
     const stored = localStorage.getItem(ADMIN_SESSION_KEY);
     if (!stored) return null;
@@ -22,6 +25,10 @@ export default function App() {
       return null;
     }
   });
+
+  useEffect(() => {
+    if (admin && !isCustomerMenu) return startMenuSync(getLocalCustomerMenu);
+  }, [admin, isCustomerMenu]);
 
   function handleAdminLogin(staff: Staff) {
     localStorage.setItem(ADMIN_SESSION_KEY, JSON.stringify(staff));
@@ -48,12 +55,13 @@ export default function App() {
         <NavLink to="/stock">Stock</NavLink>
         <NavLink to="/reports">Reports</NavLink>
         <NavLink to="/menu-qr">Menu QR</NavLink>
-        <NavLink to="/menu" target="_blank">Customer menu</NavLink>
+        <a href={getCustomerMenuUrl()} target="_blank" rel="noreferrer">Customer menu</a>
         <button type="button" className="nav-logout" onClick={handleAdminLogout}>
           Logout
         </button>
         </nav>
       )}
+      {!isCustomerMenu && <MenuSyncStatus />}
       <Routes>
         <Route path="/" element={<PosPage />} />
         <Route path="/stock" element={<StockPage />} />

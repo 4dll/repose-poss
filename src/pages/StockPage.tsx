@@ -73,7 +73,7 @@ export default function StockPage() {
     if (!qty) return;
     setError("");
     try {
-      const updated = await api.adjustStock(id, qty, adjustReason[id]);
+      const updated = await api.adjustStock(id, qty);
       setAdjustQty((p) => ({ ...p, [id]: "" }));
       setItems((current) =>
         current.map((item) =>
