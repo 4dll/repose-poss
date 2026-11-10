@@ -5,6 +5,7 @@ import { loadLiveMenu } from "../menuSync";
 
 const ITEM_IMAGES: Record<string, string> = {
   espresso: "/menu-images/espresso.jpg",
+  americano: "/menu-images/americano.jpg",
   v60: "/menu-images/v60.jpg",
   chemex: "/menu-images/chemex.jpg",
   "turkish coffee": "/menu-images/turkish-coffee.jpg",
