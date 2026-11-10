@@ -11,6 +11,8 @@ const ITEM_IMAGES: Record<string, string> = {
   "iced latte": "/menu-images/iced-latte.jpg",
   "iced spanish latte": "/menu-images/iced-latte.jpg",
   "iced mocha": "/menu-images/iced-latte.jpg",
+  "iced white mocha": "/menu-images/iced-latte.jpg",
+  "iced caramel latte": "/menu-images/iced-latte.jpg",
   "iced pistachi latte": "/menu-images/iced-pistachio-latte.jpg",
   "iced pistachio latte": "/menu-images/iced-pistachio-latte.jpg",
   cortado: "/menu-images/cortado.jpg",
