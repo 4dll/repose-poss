@@ -35,6 +35,20 @@ const ITEM_IMAGES: Record<string, string> = {
   "passion mojito": "/menu-images/passion-peach-mojito.jpg",
   peach: "/menu-images/passion-peach-mojito.jpg",
   "peach mojito": "/menu-images/passion-peach-mojito.jpg",
+  oreo: "/menu-images/oreo-nutella-milkshake.webp",
+  "oreo milkshake": "/menu-images/oreo-nutella-milkshake.webp",
+  nutella: "/menu-images/oreo-nutella-milkshake.webp",
+  "nutella milkshake": "/menu-images/oreo-nutella-milkshake.webp",
+  lotus: "/menu-images/lotus-milkshake.webp",
+  "lotus milkshake": "/menu-images/lotus-milkshake.webp",
+  "lemon mint": "/menu-images/lemon-juice.jpg",
+  "lemon juice": "/menu-images/lemon-juice.jpg",
+  orange: "/menu-images/orange-juice.jpg",
+  "orange juice": "/menu-images/orange-juice.jpg",
+  sansabstian: "/menu-images/san-sebastian.jpg",
+  "san sebastian": "/menu-images/san-sebastian.jpg",
+  "chocolate cake": "/menu-images/chocolate-cake.jpg",
+  "pistachio cheesecake": "/menu-images/pistachio-cheesecake.jpg",
 };
 
 function itemImage(item: CustomerItem) {
