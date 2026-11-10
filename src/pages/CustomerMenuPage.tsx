@@ -28,6 +28,13 @@ const ITEM_IMAGES: Record<string, string> = {
   v60: "/menu-images/v60.jpg",
   chemex: "/menu-images/chemex.jpg",
   "turkish coffee": "/menu-images/turkish-coffee.jpg",
+  "strawberry mojito": "/menu-images/strawberry-mojito.jpg",
+  blueberry: "/menu-images/blueberry-mojito.jpg",
+  "blueberry mojito": "/menu-images/blueberry-mojito.jpg",
+  passion: "/menu-images/passion-peach-mojito.jpg",
+  "passion mojito": "/menu-images/passion-peach-mojito.jpg",
+  peach: "/menu-images/passion-peach-mojito.jpg",
+  "peach mojito": "/menu-images/passion-peach-mojito.jpg",
 };
 
 function itemImage(item: CustomerItem) {
